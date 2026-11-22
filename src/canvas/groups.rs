@@ -2,8 +2,8 @@
 //! group's member tables (drawn behind everything). Agent-owned file.
 
 use crate::canvas::diagram::{cell_size, svg_icon, to_px, visible_region};
-use dbml_ui::layout::NOTE_ICON;
 use crate::theme;
+use dbml_ui::layout::NOTE_ICON;
 use dbml_ui::layout::{GroupRegion, Layout};
 use iced::widget::canvas::{self, Path, Stroke, Text};
 use iced::{border, font, Color, Font, Point, Rectangle, Size, Vector};
@@ -26,14 +26,12 @@ fn region_color(g: &GroupRegion) -> Color {
         .unwrap_or(DEFAULT_GROUP)
 }
 
-
 /// The group note glyph's center x: the label's TRUE shaped advance
 /// (the table-title convention, `measured_name_px`) plus the shared
 /// 0.6-cell gap — the gap is identical for every group, which the
 /// est_width classes could never guarantee.
 fn group_note_cx(name: &str, label_x: f32, s: Size) -> f32 {
-    label_x + crate::canvas::diagram::measured_name_px(name, true, 0.55 * s.height)
-        + 0.6 * s.width
+    label_x + crate::canvas::diagram::measured_name_px(name, true, 0.55 * s.height) + 0.6 * s.width
 }
 
 /// The groups in paint order: the grabbed ones in their raise order
@@ -58,7 +56,10 @@ pub fn groups_paint_order<'a>(layout: &'a Layout, group_z: &[String]) -> Vec<&'a
 fn region_rect_px(g: &GroupRegion, zoom: f32, pan: Vector) -> Rectangle {
     let s = cell_size(zoom);
     let top_left = to_px(g.rect.0, g.rect.1, zoom, pan);
-    Rectangle::new(top_left, Size::new(g.rect.2 as f32 * s.width, g.rect.3 as f32 * s.height))
+    Rectangle::new(
+        top_left,
+        Size::new(g.rect.2 as f32 * s.width, g.rect.3 as f32 * s.height),
+    )
 }
 
 /// Draw every group region (called from `diagram::paint` before edges):
@@ -109,12 +110,16 @@ pub fn draw_groups(
         let band = Size::new(size.width, band_h);
         // square bottom corners on the band; the top matches the region
         frame.fill(
-            &Path::rounded_rectangle(top_left, band, border::Radius {
-                top_left: 10.0 * k,
-                top_right: 10.0 * k,
-                bottom_right: 0.0,
-                bottom_left: 0.0,
-            }),
+            &Path::rounded_rectangle(
+                top_left,
+                band,
+                border::Radius {
+                    top_left: 10.0 * k,
+                    top_right: 10.0 * k,
+                    bottom_right: 0.0,
+                    bottom_left: 0.0,
+                },
+            ),
             crate::theme::readable_band(color),
         );
 
@@ -146,8 +151,8 @@ pub fn draw_groups(
                     weight: font::Weight::Bold,
                     ..Font::DEFAULT
                 },
-                horizontal_alignment: iced::alignment::Horizontal::Left,
-                vertical_alignment: iced::alignment::Vertical::Center,
+                align_x: iced::advanced::text::Alignment::Left,
+                align_y: iced::alignment::Vertical::Center,
                 ..Default::default()
             });
         };
@@ -284,9 +289,9 @@ pub fn group_icon_hit<'a>(
 fn group_icon_geometry(g: &GroupRegion, top_left: Point, s: Size) -> (Point, f32, f32) {
     let right = top_left.x + g.rect.2 as f32 * s.width - 0.6 * s.width;
     let icon_h = 0.72 * s.height;
-    let icon_w =
-        crate::canvas::diagram::CIRCLES_VIEWBOX.0 / crate::canvas::diagram::CIRCLES_VIEWBOX.1
-            * icon_h;
+    let icon_w = crate::canvas::diagram::CIRCLES_VIEWBOX.0
+        / crate::canvas::diagram::CIRCLES_VIEWBOX.1
+        * icon_h;
     let c = Point::new(right - icon_w / 2.0, top_left.y + s.height * 0.5);
     (c, (icon_w / 2.0).max(7.0), (icon_h / 2.0).max(7.0))
 }
@@ -305,8 +310,8 @@ mod tests {
         let mut gap: Option<f32> = None;
         for name in ["users", "launch_windows", "payloads", "WWW_aaaa"] {
             let label_x = 100.0;
-            let end = label_x
-                + crate::canvas::diagram::measured_name_px(name, true, 0.55 * s.height);
+            let end =
+                label_x + crate::canvas::diagram::measured_name_px(name, true, 0.55 * s.height);
             let cx = group_note_cx(name, label_x, s);
             // the convention itself: inset-relative end + the shared gap
             assert_eq!(
@@ -356,16 +361,22 @@ mod tests {
     #[test]
     fn the_group_tier_orders_grabbed_regions_above_declaration_order() {
         let l = group_layout(); // declares "one" then "two"
-        // never grabbed: declaration order
-        let names: Vec<&str> =
-            groups_paint_order(&l, &[]).iter().map(|g| g.name.as_str()).collect();
+                                // never grabbed: declaration order
+        let names: Vec<&str> = groups_paint_order(&l, &[])
+            .iter()
+            .map(|g| g.name.as_str())
+            .collect();
         assert_eq!(names, vec!["one", "two"]);
         // grabbing "one" lifts it above "two"
         let names: Vec<&str> = groups_paint_order(&l, &["one".into()])
             .iter()
             .map(|g| g.name.as_str())
             .collect();
-        assert_eq!(names, vec!["two", "one"], "the last-grabbed group paints last");
+        assert_eq!(
+            names,
+            vec!["two", "one"],
+            "the last-grabbed group paints last"
+        );
         // both grabbed: raise recency decides
         let names: Vec<&str> = groups_paint_order(&l, &["one".into(), "two".into()])
             .iter()
@@ -373,11 +384,10 @@ mod tests {
             .collect();
         assert_eq!(names, vec!["one", "two"]);
         // a stale name (a deleted group) falls back harmlessly
-        let names: Vec<&str> =
-            groups_paint_order(&l, &["gone".into(), "two".into()])
-                .iter()
-                .map(|g| g.name.as_str())
-                .collect();
+        let names: Vec<&str> = groups_paint_order(&l, &["gone".into(), "two".into()])
+            .iter()
+            .map(|g| g.name.as_str())
+            .collect();
         assert_eq!(names, vec!["one", "two"]);
     }
 
@@ -426,7 +436,10 @@ mod tests {
         // no color and a garbage color both take the TABLE header default:
         // an uncolored group renders the same near-black band a table does
         // (theme::HEADER_BG, not dbdiagram's old group blue)
-        let no_color = region_color(&GroupRegion { color: None, ..g.clone() });
+        let no_color = region_color(&GroupRegion {
+            color: None,
+            ..g.clone()
+        });
         assert_eq!(no_color, theme::HEADER_BG);
         assert!((no_color.r - 0x1f as f32 / 255.0).abs() < 1e-3);
         assert!((no_color.g - 0x21 as f32 / 255.0).abs() < 1e-3);
@@ -453,7 +466,10 @@ mod tests {
         // "one" is ~1.74 cells wide (3 chars at Row::CHAR_CELL): a point
         // inside the band's first cell hits the region
         let in_band = Point::new(tl.x + 0.8 * s.width, tl.y + 0.5 * s.height);
-        assert_eq!(group_label_hit(&l, zoom, pan, in_band, &[]).unwrap().name, "one");
+        assert_eq!(
+            group_label_hit(&l, zoom, pan, in_band, &[]).unwrap().name,
+            "one"
+        );
 
         // the region's middle sits well below the one-cell band: the frame
         // itself is not a hit target (boxes/edges own their own hits)
@@ -467,7 +483,10 @@ mod tests {
         let two = &l.groups[1];
         let tl2 = to_px(two.rect.0, two.rect.1, zoom, pan);
         let in_band2 = Point::new(tl2.x + 0.8 * s.width, tl2.y + 0.5 * s.height);
-        assert_eq!(group_label_hit(&l, zoom, pan, in_band2, &[]).unwrap().name, "two");
+        assert_eq!(
+            group_label_hit(&l, zoom, pan, in_band2, &[]).unwrap().name,
+            "two"
+        );
     }
 
     #[test]
@@ -486,12 +505,12 @@ mod tests {
             tl.x + one.rect.2 as f32 * s.width - 0.3 * s.width,
             tl.y + 0.5 * s.height,
         );
-        assert_eq!(group_label_hit(&l, zoom, pan, right_end, &[]).unwrap().name, "one");
-        // one row down: member territory, not the band
-        let below = Point::new(
-            tl.x + 0.8 * s.width,
-            tl.y + 1.5 * s.height,
+        assert_eq!(
+            group_label_hit(&l, zoom, pan, right_end, &[]).unwrap().name,
+            "one"
         );
+        // one row down: member territory, not the band
+        let below = Point::new(tl.x + 0.8 * s.width, tl.y + 1.5 * s.height);
         assert!(group_label_hit(&l, zoom, pan, below, &[]).is_none());
         // above the region: nothing
         let above = Point::new(tl.x + 0.8 * s.width, tl.y - 0.5 * s.height);
@@ -519,8 +538,12 @@ mod tests {
         assert!(group_icon_hit(&l, zoom, pan, c, &[]).is_some());
         // the band's LEFT end is not the icon (the old next-to-the-label
         // slot is long gone)
-        assert!(group_icon_hit(&l, zoom, pan, Point::new(tl.x + 1.0 * s.width, c.y), &[]).is_none());
+        assert!(
+            group_icon_hit(&l, zoom, pan, Point::new(tl.x + 1.0 * s.width, c.y), &[]).is_none()
+        );
         // below the band: member territory
-        assert!(group_icon_hit(&l, zoom, pan, Point::new(c.x, tl.y + 1.5 * s.height), &[]).is_none());
+        assert!(
+            group_icon_hit(&l, zoom, pan, Point::new(c.x, tl.y + 1.5 * s.height), &[]).is_none()
+        );
     }
 }

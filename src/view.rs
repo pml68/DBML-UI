@@ -5,16 +5,16 @@
 //! and the tab context menu stack above all.
 
 use crate::app::{
-    App, Drag, EditorMenu, FileLiveness, Maximized, Message, PickerKind, RecordView,
-    TableHeaderMenu, TabMenu, STRIP_LEFT, TAB_SLOT_W,
+    App, Drag, EditorMenu, FileLiveness, Maximized, Message, PickerKind, RecordView, TabMenu,
+    TableHeaderMenu, STRIP_LEFT, TAB_SLOT_W,
 };
 use crate::canvas::diagram::{Diagram, DiagramOverlay};
 use crate::canvas::editor::{EditorOverlay, EditorView};
-use dbml_ui::dbml::ast::RecordValue;
 use crate::editor::{KeyCode, KeyModifiers};
 use crate::theme;
+use dbml_ui::dbml::ast::RecordValue;
 use iced::widget::{
-    button, canvas, column, container, horizontal_space, mouse_area, row, scrollable, stack, text,
+    button, canvas, column, container, mouse_area, row, scrollable, space, stack, text,
 };
 use iced::{Color, Element, Fill, Font, Length, Point, Rectangle, Size};
 
@@ -122,9 +122,8 @@ pub fn root(app: &App) -> Element<'_, Message> {
 
     // dbdiagram-style problems UI: a floating count badge in the pane's
     // bottom-right corner, popping out the diagnostics list on click
-    let editor_pane: Element<'_, Message> = if app.doc_open()
-        && (!app.all_diagnostics().is_empty() || app.diagnostics_open)
-    {
+    let editor_pane: Element<'_, Message> =
+        if app.doc_open() && (!app.all_diagnostics().is_empty() || app.diagnostics_open) {
             let pane: Element<'_, Message> = editor_pane.into();
             stack![pane, diagnostics_overlay(app)].into()
         } else {
@@ -220,18 +219,14 @@ pub fn root(app: &App) -> Element<'_, Message> {
         .height(Fill),
         // the maximize button rides the top-right corner (F2 does the
         // same) — the toolbar's own icon chrome, flush with the corner
-        container(
-            diagram_max_button(app.maximized == Maximized::Diagram),
-        )
-        .width(Fill)
-        .height(Fill)
-        .align_x(iced::alignment::Horizontal::Right)
-        .align_y(iced::alignment::Vertical::Top),
-
+        container(diagram_max_button(app.maximized == Maximized::Diagram),)
+            .width(Fill)
+            .height(Fill)
+            .align_x(iced::alignment::Horizontal::Right)
+            .align_y(iced::alignment::Vertical::Top),
         // the right-click twin (the header-color menu's entry point): the
         // Diagram canvas itself only forwards left presses
         canvas(DiagramRightClick).width(Fill).height(Fill),
-
     ]
     .width(Fill)
     .height(Fill);
@@ -258,54 +253,52 @@ pub fn root(app: &App) -> Element<'_, Message> {
     .width(Length::Fixed(16.0))
     .height(Length::Fixed(16.0));
     let mut export_dialect_layer: Option<Element<'_, Message>> = None;
-    let mut export_dropdown = column![
-        button(
-            container(
-                row![
-                    export_svg,
-                    text("Export".to_string()),
-                    // the caret stays DOWN in both states (an up caret
-                    // read as a strange sideways flick when opening)
-                    chevron_svg(true),
-                ]
-                .spacing(6)
-                .align_y(iced::alignment::Vertical::Center),
-            )
-            .width(Fill)
-            .height(Fill)
-            .align_x(iced::alignment::Horizontal::Center)
+    let mut export_dropdown = column![button(
+        container(
+            row![
+                export_svg,
+                text("Export".to_string()),
+                // the caret stays DOWN in both states (an up caret
+                // read as a strange sideways flick when opening)
+                chevron_svg(true),
+            ]
+            .spacing(6)
             .align_y(iced::alignment::Vertical::Center),
         )
-        // FIXED 112x30 — the same slot the menu card occupies below, so
-        // the trigger, the card and the dialect card are one aligned
-        // column (the natural-height trigger made the card read as
-        // left-shifted under it)
-        .width(Length::Fixed(112.0))
-        .height(Length::Fixed(30.0))
-        .style(move |_t, s| {
-            let mut st = tool_button_style();
-            st.background = Some(iced::Background::Color(
-                // OPEN wins over HOVER: the pointer rests on the trigger
-                // when the menu opens, and the button must read as held
-                // down (near-black) the whole time, not as hovered. At
-                // rest: the same surface as every toolbar button. HOVER
-                // is a whisper — one opaque step up from the rest state,
-                // not the toolbar's gray lift and not a translucent wash
-                // (this button sits ON the diagram: a translucent layer
-                // composites with the canvas colors behind it and shifts
-                // hue with every group/table it crosses).
-                if app.export_menu_open {
-                    theme::BG
-                } else if s == iced::widget::button::Status::Hovered {
-                    Color::from_rgb8(0x26, 0x2b, 0x31)
-                } else {
-                    theme::PANEL
-                },
-            ));
-            st
-        })
-        .on_press(Message::ToggleExportMenu),
-    ]
+        .width(Fill)
+        .height(Fill)
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center),
+    )
+    // FIXED 112x30 — the same slot the menu card occupies below, so
+    // the trigger, the card and the dialect card are one aligned
+    // column (the natural-height trigger made the card read as
+    // left-shifted under it)
+    .width(Length::Fixed(112.0))
+    .height(Length::Fixed(30.0))
+    .style(move |_t, s| {
+        let mut st = tool_button_style();
+        st.background = Some(iced::Background::Color(
+            // OPEN wins over HOVER: the pointer rests on the trigger
+            // when the menu opens, and the button must read as held
+            // down (near-black) the whole time, not as hovered. At
+            // rest: the same surface as every toolbar button. HOVER
+            // is a whisper — one opaque step up from the rest state,
+            // not the toolbar's gray lift and not a translucent wash
+            // (this button sits ON the diagram: a translucent layer
+            // composites with the canvas colors behind it and shifts
+            // hue with every group/table it crosses).
+            if app.export_menu_open {
+                theme::BG
+            } else if s == iced::widget::button::Status::Hovered {
+                Color::from_rgb8(0x26, 0x2b, 0x31)
+            } else {
+                theme::PANEL
+            },
+        ));
+        st
+    })
+    .on_press(Message::ToggleExportMenu),]
     .spacing(4)
     .align_x(iced::alignment::Horizontal::Center);
     if app.export_menu_open {
@@ -341,9 +334,7 @@ pub fn root(app: &App) -> Element<'_, Message> {
             button(
                 container(
                     row![
-                        text("Export SQL".to_string())
-                            .size(12)
-                            .color(theme::TEXT),
+                        text("Export SQL".to_string()).size(12).color(theme::TEXT),
                         chevron_svg_colored(false, DIAG_GRAY_200, 10.0),
                     ]
                     .spacing(6)
@@ -378,13 +369,11 @@ pub fn root(app: &App) -> Element<'_, Message> {
         // BUILD-TIME snapshot of export_menu_sql_open — a stale false
         // that stomped the SQL row's enter(true) the moment the pointer
         // reached the row. The rows carry their own enter state.
-        let main_menu = container(
-            column![
-                image_item("Export SVG"),
-                image_item("Export PNG"),
-                sql_row,
-            ],
-        )
+        let main_menu = container(column![
+            image_item("Export SVG"),
+            image_item("Export PNG"),
+            sql_row,
+        ])
         .width(Length::Fixed(112.0))
         .style(menu_style);
         // (no outer mouse_area re-sync: its on_enter published a
@@ -423,9 +412,7 @@ pub fn root(app: &App) -> Element<'_, Message> {
             // are adjacent, so the pointer crosses from the SQL row into
             // the submenu without a gap to lose.
             let pane_w = (app.window_size.0 - app.seam_x()).max(220.0);
-            let card = container(sub)
-                .width(Length::Fixed(118.0))
-                .style(menu_style);
+            let card = container(sub).width(Length::Fixed(118.0)).style(menu_style);
             // the mouse_area bounds = THE CARD only (the padding lives
             // OUTSIDE it): its enter fires exactly when the pointer
             // crosses the flush edge from the SQL row. A full-pane
@@ -434,19 +421,17 @@ pub fn root(app: &App) -> Element<'_, Message> {
             // No hover-out close anywhere: the submenu folds via the
             // SVG/PNG rows, a pick, or the backdrop click.
             export_dialect_layer = Some(
-                container(
-                    mouse_area(card).on_enter(Message::ExportSqlMenuOpen(true)),
-                )
-                .width(Fill)
-                .height(Fill)
-                .align_y(iced::alignment::Vertical::Top)
-                .align_x(iced::alignment::Horizontal::Left)
-                .padding(iced::Padding {
-                    top: 98.0,
-                    left: (pane_w / 2.0 + 56.0).max(0.0),
-                    ..Default::default()
-                })
-                .into(),
+                container(mouse_area(card).on_enter(Message::ExportSqlMenuOpen(true)))
+                    .width(Fill)
+                    .height(Fill)
+                    .align_y(iced::alignment::Vertical::Top)
+                    .align_x(iced::alignment::Horizontal::Left)
+                    .padding(iced::Padding {
+                        top: 98.0,
+                        left: (pane_w / 2.0 + 56.0).max(0.0),
+                        ..Default::default()
+                    })
+                    .into(),
             );
         }
     }
@@ -467,7 +452,10 @@ pub fn root(app: &App) -> Element<'_, Message> {
     .height(Fill)
     .align_x(iced::alignment::Horizontal::Center)
     .align_y(iced::alignment::Vertical::Bottom)
-    .padding(iced::Padding { bottom: 8.0, ..Default::default() });
+    .padding(iced::Padding {
+        bottom: 8.0,
+        ..Default::default()
+    });
     // while the export menu is open, a full-pane backdrop sits between the
     // canvas and the dropdown: clicking anywhere outside closes the menu
     // (the canvas click is consumed — standard menu behavior)
@@ -490,7 +478,10 @@ pub fn root(app: &App) -> Element<'_, Message> {
             .height(Fill)
             .align_x(iced::alignment::Horizontal::Center)
             .align_y(iced::alignment::Vertical::Top)
-            .padding(iced::Padding { top: 8.0, ..Default::default() })
+            .padding(iced::Padding {
+                top: 8.0,
+                ..Default::default()
+            })
             .into(),
     );
     if let Some(layer) = export_dialect_layer {
@@ -498,15 +489,19 @@ pub fn root(app: &App) -> Element<'_, Message> {
     }
     diagram_layers.push(diagram_buttons.into());
     let diagram_pane = container(iced::widget::Stack::with_children(diagram_layers))
-    .padding(1.0)
-    .width(Fill)
-    .height(Fill)
-    .style(move |_t| {
-        // the seam only exists once a document is open (the start screen
-        // keeps its rounded gap to the diagram)
-        let seam = if app.doc_open() { Seam::Left } else { Seam::None };
-        seam_panel_style(seam)
-    });
+        .padding(1.0)
+        .width(Fill)
+        .height(Fill)
+        .style(move |_t| {
+            // the seam only exists once a document is open (the start screen
+            // keeps its rounded gap to the diagram)
+            let seam = if app.doc_open() {
+                Seam::Left
+            } else {
+                Seam::None
+            };
+            seam_panel_style(seam)
+        });
 
     let editor = container(editor_pane)
         .width(Length::FillPortion((app.split * 1000.0) as u16))
@@ -517,10 +512,7 @@ pub fn root(app: &App) -> Element<'_, Message> {
 
     let panes: Element<'_, Message> = if !app.doc_open() {
         // start screen: one centered welcome view — no split, no diagram
-        container(start_screen(app))
-            .width(Fill)
-            .height(Fill)
-            .into()
+        container(start_screen(app)).width(Fill).height(Fill).into()
     } else if app.maximized == Maximized::Editor {
         // editor maximized: it takes the diagram's space (F1 / the
         // toolbar button); the diagram pane is not laid out at all
@@ -660,7 +652,9 @@ fn record_view_overlay(app: &App, rv: &RecordView) -> Element<'static, Message> 
         .width(Fill)
         .height(Fill)
         .style(|_t, _s| iced::widget::button::Style {
-            background: Some(iced::Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.5))),
+            background: Some(iced::Background::Color(Color::from_rgba(
+                0.0, 0.0, 0.0, 0.5,
+            ))),
             ..Default::default()
         })
         .on_press(Message::CloseRecords);
@@ -670,22 +664,18 @@ fn record_view_overlay(app: &App, rv: &RecordView) -> Element<'static, Message> 
 }
 
 fn close_records_button() -> Element<'static, Message> {
-    button(
-        text("\u{00d7}".to_string())
-            .size(22.0)
-            .color(theme::TEXT),
-    )
-    .padding([4, 11])
-    .style(move |_t, s| iced::widget::button::Style {
-        background: Some(iced::Background::Color(match s {
-            iced::widget::button::Status::Hovered => Color::from_rgba(1.0, 1.0, 1.0, 0.08),
-            _ => Color::TRANSPARENT,
-        })),
-        border: iced::border::rounded(6),
-        ..Default::default()
-    })
-    .on_press(Message::CloseRecords)
-    .into()
+    button(text("\u{00d7}".to_string()).size(22.0).color(theme::TEXT))
+        .padding([4, 11])
+        .style(move |_t, s| iced::widget::button::Style {
+            background: Some(iced::Background::Color(match s {
+                iced::widget::button::Status::Hovered => Color::from_rgba(1.0, 1.0, 1.0, 0.08),
+                _ => Color::TRANSPARENT,
+            })),
+            border: iced::border::rounded(6),
+            ..Default::default()
+        })
+        .on_press(Message::CloseRecords)
+        .into()
 }
 
 /// The modal drop shadow: without it the panels read as painted flat
@@ -794,7 +784,9 @@ fn confirm_modal(
         .width(Fill)
         .height(Fill)
         .style(|_t, _s| iced::widget::button::Style {
-            background: Some(iced::Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.5))),
+            background: Some(iced::Background::Color(Color::from_rgba(
+                0.0, 0.0, 0.0, 0.5,
+            ))),
             ..Default::default()
         })
         .on_press(cancel);
@@ -808,26 +800,58 @@ fn confirm_modal(
 // DTable CSS, live-sampled): modal #222, the grid's header band #2C2D32,
 // hairline dividers on their table-divider token #37383e, muted gray
 // #9B9DA3, their pk and fk blues.
-const REC_MUTED: Color = Color { r: 0.607, g: 0.616, b: 0.639, a: 1.0 }; // #9B9DA3
-const REC_FK_BLUE: Color = Color { r: 0.467, g: 0.643, b: 0.996, a: 1.0 }; // #77A4FE
-const REC_MODAL_BG: Color = Color { r: 0.133, g: 0.133, b: 0.133, a: 1.0 }; // #222222
-const REC_HEADER_BAND: Color = Color { r: 0.173, g: 0.176, b: 0.196, a: 1.0 }; // #2C2D32
-const REC_DIVIDER: Color = Color { r: 0.216, g: 0.220, b: 0.243, a: 1.0 }; // #37383e
+const REC_MUTED: Color = Color {
+    r: 0.607,
+    g: 0.616,
+    b: 0.639,
+    a: 1.0,
+}; // #9B9DA3
+const REC_FK_BLUE: Color = Color {
+    r: 0.467,
+    g: 0.643,
+    b: 0.996,
+    a: 1.0,
+}; // #77A4FE
+const REC_MODAL_BG: Color = Color {
+    r: 0.133,
+    g: 0.133,
+    b: 0.133,
+    a: 1.0,
+}; // #222222
+const REC_HEADER_BAND: Color = Color {
+    r: 0.173,
+    g: 0.176,
+    b: 0.196,
+    a: 1.0,
+}; // #2C2D32
+const REC_DIVIDER: Color = Color {
+    r: 0.216,
+    g: 0.220,
+    b: 0.243,
+    a: 1.0,
+}; // #37383e
 /// The row dividers: their `.5px` border-bottom of the same token reads
 /// about half as strong over the #222 body.
-const REC_ROW_DIVIDER: Color = Color { r: 0.216, g: 0.220, b: 0.243, a: 0.55 }; // #37383e @ 55%
+const REC_ROW_DIVIDER: Color = Color {
+    r: 0.216,
+    g: 0.220,
+    b: 0.243,
+    a: 0.55,
+}; // #37383e @ 55%
 /// Their chip pill: `px-1 rounded font-semibold` on `bg-[#44444B]
 /// text-[#9B9DA3]` (the `s` class).
-const REC_CHIP_BG: Color = Color { r: 0.267, g: 0.267, b: 0.294, a: 1.0 }; // #44444B
+const REC_CHIP_BG: Color = Color {
+    r: 0.267,
+    g: 0.267,
+    b: 0.294,
+    a: 1.0,
+}; // #44444B
 
 /// A header cell: their `p-3` on the #2C2D32 band. The column divider
 /// rides BETWEEN cells as its own 1px element (iced borders have no
 /// per-side widths).
 fn record_header_cell(head: Element<'static, Message>, w: f32) -> Element<'static, Message> {
-    container(head)
-        .width(Length::Fixed(w))
-        .padding(12)
-        .into()
+    container(head).width(Length::Fixed(w)).padding(12).into()
 }
 
 /// A body cell: `px-3 py-2` over the modal bg.
@@ -841,7 +865,7 @@ fn record_body_cell(content: Element<'static, Message>, w: f32) -> Element<'stat
 /// Their `bordered` table's 1px #37383e vertical divider, drawn BETWEEN
 /// cells (the wrapper's own border closes the outline).
 fn record_col_divider() -> Element<'static, Message> {
-    container(horizontal_space())
+    container(space::horizontal())
         .width(Length::Fixed(1.0))
         .height(Fill)
         .style(|_t| container::Style {
@@ -854,7 +878,7 @@ fn record_col_divider() -> Element<'static, Message> {
 /// The faint horizontal divider between body rows: their `.5px`
 /// border-bottom of the same token, half as strong over the #222 body.
 fn record_row_divider() -> Element<'static, Message> {
-    container(horizontal_space())
+    container(space::horizontal())
         .width(Fill)
         .height(Length::Fixed(1.0))
         .style(|_t| container::Style {
@@ -867,7 +891,7 @@ fn record_row_divider() -> Element<'static, Message> {
 /// The strong horizontal divider under the header band (their `th`
 /// border-bottom).
 fn record_header_divider() -> Element<'static, Message> {
-    container(horizontal_space())
+    container(space::horizontal())
         .width(Fill)
         .height(Length::Fixed(1.0))
         .style(|_t| container::Style {
@@ -925,20 +949,21 @@ fn record_panel(
 
     // their header: h2 text-base font-bold — `schema.tableName` (no
     // glyph; the user preferred the bare name)
-    let mut title_row = row![
-        text(b.title.clone())
-            .size(16.0)
-            .color(theme::TEXT)
-            .font(Font {
-                weight: iced::font::Weight::Bold,
-                ..Font::DEFAULT
-            }),
-    ]
+    let mut title_row = row![text(b.title.clone())
+        .size(16.0)
+        .color(theme::TEXT)
+        .font(Font {
+            weight: iced::font::Weight::Bold,
+            ..Font::DEFAULT
+        }),]
     .align_y(iced::alignment::Vertical::Center)
     .spacing(6);
     if rec.example {
         title_row = title_row.push(
-            text("example".to_string()).size(10.0).color(REC_MUTED).width(Length::Shrink),
+            text("example".to_string())
+                .size(10.0)
+                .color(REC_MUTED)
+                .width(Length::Shrink),
         );
     }
     let header = title_row;
@@ -1004,7 +1029,8 @@ fn record_panel(
                 if rowi.unique {
                     chips.push("unique");
                 }
-                let type_line_w = (ty.chars().count() + chips.iter().map(|c| c.chars().count()).sum::<usize>())
+                let type_line_w = (ty.chars().count()
+                    + chips.iter().map(|c| c.chars().count()).sum::<usize>())
                     as f32
                     * 7.2
                     + chips.len() as f32 * 4.0;
@@ -1024,7 +1050,10 @@ fn record_panel(
         container(
             text(" # ".to_string())
                 .size(14.0)
-                .color(Color { a: 0.4, ..theme::TEXT })
+                .color(Color {
+                    a: 0.4,
+                    ..theme::TEXT
+                })
                 .font(Font {
                     weight: iced::font::Weight::Semibold,
                     ..Font::DEFAULT
@@ -1049,24 +1078,20 @@ fn record_panel(
         if pk {
             name_line = name_line.push(pk_glyph());
         }
-        name_line = name_line.push(
-            text(name.clone())
-                .size(14.0)
-                .color(theme::TEXT)
-                .font(Font {
-                    weight: iced::font::Weight::Semibold,
-                    ..Font::DEFAULT
-                }),
-        );
+        name_line = name_line.push(text(name.clone()).size(14.0).color(theme::TEXT).font(Font {
+            weight: iced::font::Weight::Semibold,
+            ..Font::DEFAULT
+        }));
         // the type line: the muted type (at their opacity-70 over the
         // band) + their chips (`E`, `not_null`, `unique`) as pills
         let mut type_line = row![].spacing(6).align_y(iced::alignment::Vertical::Center);
         type_line = type_line.push(
-            text(
-                rowi.map_or_else(String::new, |r| r.ty.clone()),
-            )
-            .size(12.0)
-            .color(Color { a: 0.7, ..REC_MUTED }),
+            text(rowi.map_or_else(String::new, |r| r.ty.clone()))
+                .size(12.0)
+                .color(Color {
+                    a: 0.7,
+                    ..REC_MUTED
+                }),
         );
         if let Some(rowi) = rowi {
             if rowi.ty_enum {
@@ -1111,11 +1136,10 @@ fn record_panel(
         let followed = rv.follow == Some(ri);
         let mut line = row![].spacing(0);
         line = line.push(
-            container(
-                text(format!("{}", ri + 1))
-                    .size(12.0)
-                    .color(Color { a: 0.4, ..theme::TEXT }),
-            )
+            container(text(format!("{}", ri + 1)).size(12.0).color(Color {
+                a: 0.4,
+                ..theme::TEXT
+            }))
             .width(Length::Fixed(36.0))
             .padding([8, 10]),
         );
@@ -1123,7 +1147,15 @@ fn record_panel(
             let (label, is_null) = labels[ri][pi].clone();
             let v = row_vals.get(p).unwrap_or(&RecordValue::Null);
             line = line.push(record_cell(
-                boxes, b, rec, p, v, w, label, is_null, REC_FK_BLUE,
+                boxes,
+                b,
+                rec,
+                p,
+                v,
+                w,
+                label,
+                is_null,
+                REC_FK_BLUE,
             ));
             if pi + 1 < cols_len {
                 line = line.push(record_col_divider());
@@ -1147,8 +1179,7 @@ fn record_panel(
     }
     if rec.rows.is_empty() {
         grid = grid.push(
-            container(text("no rows".to_string()).size(12.0).color(REC_MUTED))
-                .padding([8, 42]),
+            container(text("no rows".to_string()).size(12.0).color(REC_MUTED)).padding([8, 42]),
         );
     }
 
@@ -1156,22 +1187,21 @@ fn record_panel(
     // 8px radius; cells carry the inner dividers
     // (the Fill-width row dividers enclosed themselves into the column's
     // size hint — Shrink it back: they stretch to the laid-out width)
-    let grid = container(scrollable(grid.width(Length::Shrink).height(Length::Shrink)).direction(
-        scrollable::Direction::Both {
-            vertical: scrollable::Scrollbar::new(),
-            horizontal: scrollable::Scrollbar::new(),
-        },
-    ))
+    let grid = container(
+        scrollable(grid.width(Length::Shrink).height(Length::Shrink)).direction(
+            scrollable::Direction::Both {
+                vertical: scrollable::Scrollbar::new(),
+                horizontal: scrollable::Scrollbar::new(),
+            },
+        ),
+    )
     .style(|_t| container::Style {
         border: iced::border::rounded(8).color(REC_DIVIDER).width(1.0),
         ..Default::default()
     });
 
     // their header-to-grid gap is mb-4 (16px)
-    column![header, grid]
-        .spacing(16)
-        .height(Fill)
-        .into()
+    column![header, grid].spacing(16).height(Fill).into()
 }
 
 /// Pixel width of a grid column that must fit the widest of `parts`.
@@ -1188,7 +1218,10 @@ fn cell_w(parts: &[&str]) -> f32 {
 /// Display order of the record's value columns: PK columns sorted first
 /// (the box's rows parallel the node's columns, so the row pk flag rides
 /// along), definition order within each group.
-fn records_display_order(b: &dbml_ui::layout::TableBox, rec: &dbml_ui::model::NodeRecords) -> Vec<usize> {
+fn records_display_order(
+    b: &dbml_ui::layout::TableBox,
+    rec: &dbml_ui::model::NodeRecords,
+) -> Vec<usize> {
     let mut order: Vec<usize> = (0..rec.columns.len()).collect();
     order.sort_by_key(|&p| {
         let pk = rec
@@ -1207,17 +1240,14 @@ fn records_display_order(b: &dbml_ui::layout::TableBox, rec: &dbml_ui::model::No
 /// column width `w` is precomputed for the whole grid.
 /// A record cell's text at the grid's 12px, with the null italic.
 fn record_text(label: String, c: Color, italic: bool) -> iced::widget::Text<'static> {
-    text(label)
-        .size(12.0)
-        .color(c)
-        .font(Font {
-            style: if italic {
-                iced::font::Style::Italic
-            } else {
-                iced::font::Style::Normal
-            },
-            ..Font::DEFAULT
-        })
+    text(label).size(12.0).color(c).font(Font {
+        style: if italic {
+            iced::font::Style::Italic
+        } else {
+            iced::font::Style::Normal
+        },
+        ..Font::DEFAULT
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1242,7 +1272,10 @@ fn record_cell(
     // italic "(null)" at half opacity; everything else plain white
     if !navigable {
         let ink = if is_null {
-            Color { a: 0.5, ..theme::TEXT }
+            Color {
+                a: 0.5,
+                ..theme::TEXT
+            }
         } else {
             theme::TEXT
         };
@@ -1256,7 +1289,7 @@ fn record_cell(
                 ..Default::default()
             })
             .on_press(follow_message(boxes, b, rec, p, v))
-        .into(),
+            .into(),
         w,
     )
 }
@@ -1366,10 +1399,7 @@ fn teardrop_path(x0: f32, x1: f32, top: f32, bottom: f32, top_r: f32, curl_r: f3
         );
         p.line_to(Point::new(x1 - curl_r, bottom - curl_r));
         // right curl, ending on the bottom line — path left open
-        p.quadratic_curve_to(
-            Point::new(x1 - curl_r, bottom),
-            Point::new(x1, bottom),
-        );
+        p.quadratic_curve_to(Point::new(x1 - curl_r, bottom), Point::new(x1, bottom));
     })
 }
 
@@ -1407,7 +1437,9 @@ impl TabStrip<'_> {
             return None;
         }
         let i = i as usize;
-        (0.0..TAB_W).contains(&(x - STRIP_LEFT - i as f32 * TAB_SLOT_W)).then_some(i)
+        (0.0..TAB_W)
+            .contains(&(x - STRIP_LEFT - i as f32 * TAB_SLOT_W))
+            .then_some(i)
     }
 
     fn plus_at(&self, x: f32, y: f32) -> bool {
@@ -1425,7 +1457,6 @@ impl TabStrip<'_> {
     }
 }
 
-
 /// One tab's full paint (fill, border, title, unsaved asterisk, close
 /// glyph) — shared by the normal path and the clipped-sliver path.
 fn paint_tab<R: iced::advanced::graphics::geometry::Renderer>(
@@ -1440,133 +1471,132 @@ fn paint_tab<R: iced::advanced::graphics::geometry::Renderer>(
     width: f32,
     asterisk_floor: f32,
 ) {
-        let tab = &app.tabs[i];
-        if active || on_top {
-            // Chrome's teardrop: the shape runs flush to the strip's
-            // bottom line, where its PANEL fill merges into the pane
-            // below; the stroke stays open across that merge
-            let path = teardrop_path(
-                rect.x,
-                rect.x + rect.width,
-                rect.y,
-                STRIP_H,
-                7.0,
-                6.0,
-            );
-            frame.fill(&path, theme::PANEL);
-            frame.stroke(
-                &path,
-                canvas::Stroke {
-                    style: theme::BORDER.into(),
-                    width: 1.0,
-                    ..Default::default()
-                },
-            );
-        } else if hovered {
-            // Chrome's inactive hover: an inset stadium pill
-            let pill = Rectangle::new(
-                Point::new(rect.x, 3.0),
-                Size::new(rect.width, STRIP_H - 6.0),
-            );
-            frame.fill(
-                &canvas::Path::rounded_rectangle(
-                    pill.position(),
-                    pill.size(),
-                    iced::border::Radius::from(7.0),
-                ),
-                Color::from_rgba(0.11, 0.129, 0.157, 0.5),
-            );
-        }
-        if close_hover {
-            // Chrome's close button: a round disc behind the ×
-            let disc = close_disc(rect.x, width, rect.center_y());
-            let c = Point::new(disc.center_x(), rect.center_y());
-            frame.fill(
-                &canvas::Path::circle(c, 8.5),
-                Color::from_rgba(1.0, 1.0, 1.0, 0.09),
-            );
-        }
-        let mut title = tab.title();
-        if tab.liveness != FileLiveness::InSync {
-            // disk problem (conflict / deleted / moved): the durable
-            // signal; the toast is the moment signal
-            title = format!("! {title}");
-        }
-        // during the open grow the content fades in past half width
-        // (canvas text can't clip to the growing rect)
-        let grow = (width / TAB_W).clamp(0.0, 1.0);
-        if grow > 0.5 {
-            let mut base = if active { theme::TEXT } else { theme::DIM };
-            base.a = grow;
-            // the unsaved marker: an eight-spoked asterisk DRAWN on
-            // the canvas (the mono face has no ✳ glyph — text renders
-            // a ? for it) — vertically centered on the tab text's
-            // line, in its own slot so the label never shifts
-            if tab.is_modified() {
-                // +0.5 optical: the drawn spokes center a half-pixel
-                // high of the × glyph's ink (measured off the strip).
-                // The anchor = natural (rect.x + 15) floored by the
-                // caller's arg: the sliver path passes the natural
-                // anchor so the drag-cover occludes the mark exactly
-                // like the clipped title text (covered under the
-                // dragged card, revealed incrementally); the floor
-                // arg remains the remnant-anchor hook for sweeps.
-                let c = Point::new((rect.x + 15.0).max(asterisk_floor), rect.center_y() + 0.5);
-                let r = 4.5;
-                for i in 0..4 {
-                    let a = i as f32 * std::f32::consts::FRAC_PI_4;
-                    let (dx, dy) = (r * a.cos(), r * a.sin());
-                    frame.stroke(
-                        &canvas::Path::line(
-                            Point::new(c.x - dx, c.y - dy),
-                            Point::new(c.x + dx, c.y + dy),
-                        ),
-                        canvas::Stroke {
-                            style: base.into(),
-                            width: 1.4,
-                            ..Default::default()
-                        },
-                    );
-                }
+    let tab = &app.tabs[i];
+    if active || on_top {
+        // Chrome's teardrop: the shape runs flush to the strip's
+        // bottom line, where its PANEL fill merges into the pane
+        // below; the stroke stays open across that merge
+        let path = teardrop_path(rect.x, rect.x + rect.width, rect.y, STRIP_H, 7.0, 6.0);
+        frame.fill(&path, theme::PANEL);
+        frame.stroke(
+            &path,
+            canvas::Stroke {
+                style: theme::BORDER.into(),
+                width: 1.0,
+                ..Default::default()
+            },
+        );
+    } else if hovered {
+        // Chrome's inactive hover: an inset stadium pill
+        let pill = Rectangle::new(
+            Point::new(rect.x, 3.0),
+            Size::new(rect.width, STRIP_H - 6.0),
+        );
+        frame.fill(
+            &canvas::Path::rounded_rectangle(
+                pill.position(),
+                pill.size(),
+                iced::border::Radius::from(7.0),
+            ),
+            Color::from_rgba(0.11, 0.129, 0.157, 0.5),
+        );
+    }
+    if close_hover {
+        // Chrome's close button: a round disc behind the ×
+        let disc = close_disc(rect.x, width, rect.center_y());
+        let c = Point::new(disc.center_x(), rect.center_y());
+        frame.fill(
+            &canvas::Path::circle(c, 8.5),
+            Color::from_rgba(1.0, 1.0, 1.0, 0.09),
+        );
+    }
+    let mut title = tab.title();
+    if tab.liveness != FileLiveness::InSync {
+        // disk problem (conflict / deleted / moved): the durable
+        // signal; the toast is the moment signal
+        title = format!("! {title}");
+    }
+    // during the open grow the content fades in past half width
+    // (canvas text can't clip to the growing rect)
+    let grow = (width / TAB_W).clamp(0.0, 1.0);
+    if grow > 0.5 {
+        let mut base = if active { theme::TEXT } else { theme::DIM };
+        base.a = grow;
+        // the unsaved marker: an eight-spoked asterisk DRAWN on
+        // the canvas (the mono face has no ✳ glyph — text renders
+        // a ? for it) — vertically centered on the tab text's
+        // line, in its own slot so the label never shifts
+        if tab.is_modified() {
+            // +0.5 optical: the drawn spokes center a half-pixel
+            // high of the × glyph's ink (measured off the strip).
+            // The anchor = natural (rect.x + 15) floored by the
+            // caller's arg: the sliver path passes the natural
+            // anchor so the drag-cover occludes the mark exactly
+            // like the clipped title text (covered under the
+            // dragged card, revealed incrementally); the floor
+            // arg remains the remnant-anchor hook for sweeps.
+            let c = Point::new((rect.x + 15.0).max(asterisk_floor), rect.center_y() + 0.5);
+            let r = 4.5;
+            for i in 0..4 {
+                let a = i as f32 * std::f32::consts::FRAC_PI_4;
+                let (dx, dy) = (r * a.cos(), r * a.sin());
+                frame.stroke(
+                    &canvas::Path::line(
+                        Point::new(c.x - dx, c.y - dy),
+                        Point::new(c.x + dx, c.y + dy),
+                    ),
+                    canvas::Stroke {
+                        style: base.into(),
+                        width: 1.4,
+                        ..Default::default()
+                    },
+                );
             }
-            frame.fill_text(canvas::Text {
-                // 20px inset so the label doesn't hug the tab's left
-                // edge; vertically CENTERED on the same line the ×
-                // centers on (the old 2px optical lift lifted the
-                // label high of the glyph — the eye catches that)
-                content: truncate_title(&title, 16),
-                // +1.5 optical: the font centers the ink high of the
-                // × glyph's band (measured off the strip)
-                position: Point::new(rect.x + 25.0, rect.center_y() + 1.0),
-                color: base,
-                size: 12.0.into(),
-                vertical_alignment: iced::alignment::Vertical::Center,
-                ..Default::default()
-            });
-            frame.fill_text(canvas::Text {
-                content: "\u{00d7}".to_string(),
-                // CENTER-aligned: the position is the click zone's
-                // center — with the old Left default the glyph's left
-                // edge sat here and it overran the tab's right side
-                position: Point::new(rect.x + width - 19.0, rect.center_y()),
-                color: if close_hover {
-                    Color { a: grow, ..theme::TEXT }
-                } else {
-                    Color { a: grow, ..theme::DIM }
-                },
-                size: 14.0.into(),
-                horizontal_alignment: iced::alignment::Horizontal::Center,
-                vertical_alignment: iced::alignment::Vertical::Center,
-                ..Default::default()
-            });
         }
+        frame.fill_text(canvas::Text {
+            // 20px inset so the label doesn't hug the tab's left
+            // edge; vertically CENTERED on the same line the ×
+            // centers on (the old 2px optical lift lifted the
+            // label high of the glyph — the eye catches that)
+            content: truncate_title(&title, 16),
+            // +1.5 optical: the font centers the ink high of the
+            // × glyph's band (measured off the strip)
+            position: Point::new(rect.x + 25.0, rect.center_y() + 1.0),
+            color: base,
+            size: 12.0.into(),
+            align_y: iced::alignment::Vertical::Center,
+            ..Default::default()
+        });
+        frame.fill_text(canvas::Text {
+            content: "\u{00d7}".to_string(),
+            // CENTER-aligned: the position is the click zone's
+            // center — with the old Left default the glyph's left
+            // edge sat here and it overran the tab's right side
+            position: Point::new(rect.x + width - 19.0, rect.center_y()),
+            color: if close_hover {
+                Color {
+                    a: grow,
+                    ..theme::TEXT
+                }
+            } else {
+                Color {
+                    a: grow,
+                    ..theme::DIM
+                }
+            },
+            size: 14.0.into(),
+            align_x: iced::advanced::text::Alignment::Center,
+            align_y: iced::alignment::Vertical::Center,
+            ..Default::default()
+        });
+    }
 }
 
 /// DBML_UI_STRIP_DUMP: render the tab strip to a PNG headlessly (the
 /// tiny-skia renderer — same geometry pipeline, software path). The
 /// asterisk hunt compares these frames against the live wgpu output.
 pub fn dump_strip_frame(app: &App, path: &str) {
-    use iced_tiny_skia::{Renderer, graphics::geometry::Renderer as _};
+    use iced_tiny_skia::{graphics::geometry::Renderer as _, Renderer};
     let bounds = Rectangle::new(Point::new(0.0, 0.0), Size::new(400.0, STRIP_H));
     let mut renderer = Renderer::new(Font::DEFAULT, 12.0.into());
     let mut frame = iced::widget::canvas::Frame::new(&renderer, bounds.size());
@@ -1576,17 +1606,13 @@ pub fn dump_strip_frame(app: &App, path: &str) {
     let h = bounds.height as u32;
     let mut pixmap = tiny_skia::Pixmap::new(w, h).expect("pixmap");
     let mut mask = tiny_skia::Mask::new(w, h).expect("mask");
-    let viewport = iced_tiny_skia::graphics::Viewport::with_physical_size(
-        Size::new(w, h),
-        1.0,
-    );
+    let viewport = iced_tiny_skia::graphics::Viewport::with_physical_size(Size::new(w, h), 1.0);
     renderer.draw(
         &mut pixmap.as_mut(),
         &mut mask,
         &viewport,
         &[bounds],
         Color::from_rgb8(1, 2, 3),
-        &[] as &[&str],
     );
     let _ = pixmap.save_png(path);
 }
@@ -1601,188 +1627,198 @@ pub fn paint_tab_strip<R: iced::advanced::graphics::geometry::Renderer>(
     pointer: Option<Point>,
 ) {
     let hover_i = pointer.and_then(|l| tab_at(app, l.x, l.y));
-        // the scroll shift: strip-space content x moves LEFT by this much
-        // (the slots, ghosts, separators and the + all live in content
-        // space; hit tests add it back)
-        let scroll = app.tab_scroll;
-        // Chrome's short separators between tab slots, hidden around the
-        // active tab (its merge makes one redundant) and the dragged tab
-        let dragged_now = app.tab_drag.as_ref().map(|d| d.from);
-        if app.tabs.len() > 1 {
-            for i in 1..app.tabs.len() {
-                if !separator_visible(i, app.active, dragged_now) {
-                    continue;
-                }
-                // centered in the 4px gap before the slot
-                let x = STRIP_LEFT + i as f32 * TAB_SLOT_W - 3.0 - scroll;
-                // 2px, but BORDER at half alpha: the full-brightness gray
-                // shouted next to the dim strip (subtle, like Chrome's)
-                let sep = Color { a: 0.45, ..theme::BORDER };
-                frame.fill_rectangle(
-                    Point::new(x, STRIP_H * 0.5 - 9.0),
-                    Size::new(2.0, 18.0),
-                    sep,
-                );
+    // the scroll shift: strip-space content x moves LEFT by this much
+    // (the slots, ghosts, separators and the + all live in content
+    // space; hit tests add it back)
+    let scroll = app.tab_scroll;
+    // Chrome's short separators between tab slots, hidden around the
+    // active tab (its merge makes one redundant) and the dragged tab
+    let dragged_now = app.tab_drag.as_ref().map(|d| d.from);
+    if app.tabs.len() > 1 {
+        for i in 1..app.tabs.len() {
+            if !separator_visible(i, app.active, dragged_now) {
+                continue;
             }
-        }
-        // the dragged tab draws LAST and OPAQUE (Chrome): while it overlaps
-        // a displaced neighbor mid-slide, the neighbor's text must not
-        // bleed through it
-        let mut order: Vec<usize> = (0..app.tabs.len()).collect();
-        // closing ghosts draw BEHIND everything (Chromium z-orders the
-        // closing tab below): a dimming slab shrinking in place, its title
-        // fading out with the width (canvas text can't clip to a rect)
-        for g in &app.tab_closing {
-            let rect = Rectangle::new(
-                Point::new(STRIP_LEFT + g.x - scroll, 2.0),
-                Size::new(g.w, STRIP_H - 4.0),
-            );
-            frame.fill(
-                &canvas::Path::rounded_rectangle(
-                    rect.position(),
-                    rect.size(),
-                    iced::border::Radius::from(6.0),
-                ),
-                Color::from_rgba(0.11, 0.129, 0.157, 0.5),
-            );
-            if g.w > TAB_W / 2.0 {
-                let alpha = (g.w / TAB_W).clamp(0.0, 1.0);
-                frame.fill_text(canvas::Text {
-                    content: g.title.clone(),
-                    position: Point::new(rect.x + 12.0, rect.center_y()),
-                    color: Color { a: alpha, ..theme::DIM },
-                    size: 12.0.into(),
-                    horizontal_alignment: iced::alignment::Horizontal::Left,
-                    vertical_alignment: iced::alignment::Vertical::Center,
-                    ..Default::default()
-                });
-            }
-        }
-        // Chrome's drag z-order: the dragged tab draws LAST (on top) and
-        // opaque, so a displaced tab sliding beneath is hidden; everything
-        // else draws inactive-first, active last as before.
-        let dragged = app.tab_drag.as_ref().map(|d| d.from);
-        // the dragged tab's drawn rect: any tab intersecting it is HIDDEN
-        // (skipped entirely) while the drag is over it. Draw order cannot
-        // do this: iced flattens one canvas widget's fills into a single
-        // mesh pass and ALL its text into a single later text pass, so the
-        // dragged tab's opaque fill covers a neighbor's body but never its
-        // title — the overlapped tab must simply not draw.
-        let drag_rect = dragged.map(|i| {
-            let off = app.tab_anim.get(i).copied().unwrap_or(0.0);
-            Rectangle::new(
-                Point::new(STRIP_LEFT + i as f32 * TAB_SLOT_W + off - scroll, 2.0),
-                Size::new(TAB_W, STRIP_H - 4.0),
-            )
-        });
-        order.sort_by_key(|&i| i == app.active || Some(i) == dragged);
-        // one tab's full paint (fill, border, title, close glyph), shared
-        // by the normal path and the clipped-sliver path below
-        for i in order {
-            let off = app.tab_anim.get(i).copied().unwrap_or(0.0);
-            let active = i == app.active;
-            let on_top = Some(i) == dragged;
-            let x = STRIP_LEFT + i as f32 * TAB_SLOT_W + off - scroll;
-            // the open animation: the newest tab grows rightward from the
-            // preceding tab's edge (Chromium's left-glued sliver)
-            let width = if app.tab_opening.is_some() && i + 1 == app.tabs.len() {
-                app.tab_opening.unwrap_or(TAB_W)
-            } else {
-                TAB_W
+            // centered in the 4px gap before the slot
+            let x = STRIP_LEFT + i as f32 * TAB_SLOT_W - 3.0 - scroll;
+            // 2px, but BORDER at half alpha: the full-brightness gray
+            // shouted next to the dim strip (subtle, like Chrome's)
+            let sep = Color {
+                a: 0.45,
+                ..theme::BORDER
             };
-            let rect = Rectangle::new(Point::new(x, 2.0), Size::new(width, STRIP_H - 4.0));
-            let hovered = hover_i == Some(i) && app.tab_drag.is_none();
-            // the × disc lights up when the pointer sits in its click zone
-            let close_hover = pointer.is_some_and(|p| {
-                hovered && p.x >= x + width - 28.0 && p.x <= x + width - 10.0
+            frame.fill_rectangle(
+                Point::new(x, STRIP_H * 0.5 - 9.0),
+                Size::new(2.0, 18.0),
+                sep,
+            );
+        }
+    }
+    // the dragged tab draws LAST and OPAQUE (Chrome): while it overlaps
+    // a displaced neighbor mid-slide, the neighbor's text must not
+    // bleed through it
+    let mut order: Vec<usize> = (0..app.tabs.len()).collect();
+    // closing ghosts draw BEHIND everything (Chromium z-orders the
+    // closing tab below): a dimming slab shrinking in place, its title
+    // fading out with the width (canvas text can't clip to a rect)
+    for g in &app.tab_closing {
+        let rect = Rectangle::new(
+            Point::new(STRIP_LEFT + g.x - scroll, 2.0),
+            Size::new(g.w, STRIP_H - 4.0),
+        );
+        frame.fill(
+            &canvas::Path::rounded_rectangle(
+                rect.position(),
+                rect.size(),
+                iced::border::Radius::from(6.0),
+            ),
+            Color::from_rgba(0.11, 0.129, 0.157, 0.5),
+        );
+        if g.w > TAB_W / 2.0 {
+            let alpha = (g.w / TAB_W).clamp(0.0, 1.0);
+            frame.fill_text(canvas::Text {
+                content: g.title.clone(),
+                position: Point::new(rect.x + 12.0, rect.center_y()),
+                color: Color {
+                    a: alpha,
+                    ..theme::DIM
+                },
+                size: 12.0.into(),
+                align_x: iced::advanced::text::Alignment::Left,
+                align_y: iced::alignment::Vertical::Center,
+                ..Default::default()
             });
-            // an overlapped tab PARTIALLY hides: draw it only in the
-            // slivers sticking out beyond the dragged tab, via clip
-            // rectangles (with_clip). Full-hide looked like the tab
-            // vanishing; unclipped draw-order cannot hide the title (iced
-            // flattens a canvas's fills into one mesh pass and ALL its
-            // text into a single later text pass, above every fill).
-            let clipped_by = if on_top { None } else { drag_rect.filter(|dr| {
-                rect.intersection(dr).is_some_and(|r| r.width > 0.0 && r.height > 0.0)
-            }) };
-            match clipped_by {
-                None => paint_tab(
-                    &mut *frame,
-                    app,
-                    i,
-                    rect,
-                    active,
-                    on_top,
-                    hovered,
-                    close_hover,
-                    width,
-                    rect.x + 15.0,
-                ),
-                Some(dr) => {
-                    let slivers = drag_slivers(rect, dr);
-                    for sliver in slivers {
-                        if sliver.width < 2.0 {
-                            continue;
-                        }
-                        frame.with_clip(sliver, |f| {
-                            // the draft frame is pre-translated to the clip
-                            // origin: draw the tab shifted back under it
-                            let local = Rectangle::new(
-                                Point::new(rect.x - sliver.x, rect.y - sliver.y),
-                                rect.size(),
-                            );
-                            paint_tab(
-                                f,
-                                app,
-                                i,
-                                local,
-                                active,
-                                on_top,
-                                hovered,
-                                close_hover,
-                                width,
-                                // the mark's NATURAL anchor (local x + 15):
-                                // the sliver clip occludes it like the
-                                // title text — covered while the dragged
-                                // card sits over its spot, revealed
-                                // incrementally as the drag moves away.
-                                // (Clamping the mark to the remnant's
-                                // left edge made it ride the dragged
-                                // card's edge mid-drag — the floor arg
-                                // still guards the close-sweep case.)
-                                local.x + 15.0,
-                            );
-                        });
+        }
+    }
+    // Chrome's drag z-order: the dragged tab draws LAST (on top) and
+    // opaque, so a displaced tab sliding beneath is hidden; everything
+    // else draws inactive-first, active last as before.
+    let dragged = app.tab_drag.as_ref().map(|d| d.from);
+    // the dragged tab's drawn rect: any tab intersecting it is HIDDEN
+    // (skipped entirely) while the drag is over it. Draw order cannot
+    // do this: iced flattens one canvas widget's fills into a single
+    // mesh pass and ALL its text into a single later text pass, so the
+    // dragged tab's opaque fill covers a neighbor's body but never its
+    // title — the overlapped tab must simply not draw.
+    let drag_rect = dragged.map(|i| {
+        let off = app.tab_anim.get(i).copied().unwrap_or(0.0);
+        Rectangle::new(
+            Point::new(STRIP_LEFT + i as f32 * TAB_SLOT_W + off - scroll, 2.0),
+            Size::new(TAB_W, STRIP_H - 4.0),
+        )
+    });
+    order.sort_by_key(|&i| i == app.active || Some(i) == dragged);
+    // one tab's full paint (fill, border, title, close glyph), shared
+    // by the normal path and the clipped-sliver path below
+    for i in order {
+        let off = app.tab_anim.get(i).copied().unwrap_or(0.0);
+        let active = i == app.active;
+        let on_top = Some(i) == dragged;
+        let x = STRIP_LEFT + i as f32 * TAB_SLOT_W + off - scroll;
+        // the open animation: the newest tab grows rightward from the
+        // preceding tab's edge (Chromium's left-glued sliver)
+        let width = if app.tab_opening.is_some() && i + 1 == app.tabs.len() {
+            app.tab_opening.unwrap_or(TAB_W)
+        } else {
+            TAB_W
+        };
+        let rect = Rectangle::new(Point::new(x, 2.0), Size::new(width, STRIP_H - 4.0));
+        let hovered = hover_i == Some(i) && app.tab_drag.is_none();
+        // the × disc lights up when the pointer sits in its click zone
+        let close_hover =
+            pointer.is_some_and(|p| hovered && p.x >= x + width - 28.0 && p.x <= x + width - 10.0);
+        // an overlapped tab PARTIALLY hides: draw it only in the
+        // slivers sticking out beyond the dragged tab, via clip
+        // rectangles (with_clip). Full-hide looked like the tab
+        // vanishing; unclipped draw-order cannot hide the title (iced
+        // flattens a canvas's fills into one mesh pass and ALL its
+        // text into a single later text pass, above every fill).
+        let clipped_by = if on_top {
+            None
+        } else {
+            drag_rect.filter(|dr| {
+                rect.intersection(dr)
+                    .is_some_and(|r| r.width > 0.0 && r.height > 0.0)
+            })
+        };
+        match clipped_by {
+            None => paint_tab(
+                &mut *frame,
+                app,
+                i,
+                rect,
+                active,
+                on_top,
+                hovered,
+                close_hover,
+                width,
+                rect.x + 15.0,
+            ),
+            Some(dr) => {
+                let slivers = drag_slivers(rect, dr);
+                for sliver in slivers {
+                    if sliver.width < 2.0 {
+                        continue;
                     }
+                    frame.with_clip(sliver, |f| {
+                        // the draft frame is pre-translated to the clip
+                        // origin: draw the tab shifted back under it
+                        let local = Rectangle::new(
+                            Point::new(rect.x - sliver.x, rect.y - sliver.y),
+                            rect.size(),
+                        );
+                        paint_tab(
+                            f,
+                            app,
+                            i,
+                            local,
+                            active,
+                            on_top,
+                            hovered,
+                            close_hover,
+                            width,
+                            // the mark's NATURAL anchor (local x + 15):
+                            // the sliver clip occludes it like the
+                            // title text — covered while the dragged
+                            // card sits over its spot, revealed
+                            // incrementally as the drag moves away.
+                            // (Clamping the mark to the remnant's
+                            // left edge made it ride the dragged
+                            // card's edge mid-drag — the floor arg
+                            // still guards the close-sweep case.)
+                            local.x + 15.0,
+                        );
+                    });
                 }
             }
         }
-        // the + button: Chrome's circular hover disc, tucked against the
-        // right-most tab — sliding with the tabs on open/close (its
-        // offset eases alongside the slots', so a sliding tab never
-        // overlaps a snapped-in-place +)
-        let cx = plus_center_x(app) - scroll + app.plus_anim;
-        let c = Point::new(cx, STRIP_H * 0.5);
-        let plus_hover = pointer.is_some_and(|p| {
-            (p.x - c.x).abs() <= 11.0 && (p.y - c.y).abs() <= 11.0
-        }) && app.tab_drag.is_none();
-        if plus_hover {
-            frame.fill(
-                &canvas::Path::circle(c, 10.5),
-                Color::from_rgba(1.0, 1.0, 1.0, 0.09),
-            );
-        }
-        frame.fill_text(canvas::Text {
-            content: "+".to_string(),
-            // measured on-canvas: the '+' glyph's ink centers 1px BELOW
-            // its advance center in this font — lift it onto the disc
-            position: Point::new(c.x, c.y - 1.0),
-            color: if plus_hover { theme::TEXT } else { theme::DIM },
-            size: 15.0.into(),
-            horizontal_alignment: iced::alignment::Horizontal::Center,
-            vertical_alignment: iced::alignment::Vertical::Center,
-            ..Default::default()
-        });
+    }
+    // the + button: Chrome's circular hover disc, tucked against the
+    // right-most tab — sliding with the tabs on open/close (its
+    // offset eases alongside the slots', so a sliding tab never
+    // overlaps a snapped-in-place +)
+    let cx = plus_center_x(app) - scroll + app.plus_anim;
+    let c = Point::new(cx, STRIP_H * 0.5);
+    let plus_hover = pointer
+        .is_some_and(|p| (p.x - c.x).abs() <= 11.0 && (p.y - c.y).abs() <= 11.0)
+        && app.tab_drag.is_none();
+    if plus_hover {
+        frame.fill(
+            &canvas::Path::circle(c, 10.5),
+            Color::from_rgba(1.0, 1.0, 1.0, 0.09),
+        );
+    }
+    frame.fill_text(canvas::Text {
+        content: "+".to_string(),
+        // measured on-canvas: the '+' glyph's ink centers 1px BELOW
+        // its advance center in this font — lift it onto the disc
+        position: Point::new(c.x, c.y - 1.0),
+        color: if plus_hover { theme::TEXT } else { theme::DIM },
+        size: 15.0.into(),
+        align_x: iced::advanced::text::Alignment::Center,
+        align_y: iced::alignment::Vertical::Center,
+        ..Default::default()
+    });
 }
 
 /// The + glyph/disc center: 8px past the last tab's right edge
@@ -1802,7 +1838,9 @@ fn tab_at(app: &App, y: f32, x: f32) -> Option<usize> {
         return None;
     }
     let i = i as usize;
-    (0.0..TAB_W).contains(&(x - STRIP_LEFT - i as f32 * TAB_SLOT_W)).then_some(i)
+    (0.0..TAB_W)
+        .contains(&(x - STRIP_LEFT - i as f32 * TAB_SLOT_W))
+        .then_some(i)
 }
 impl canvas::Program<Message> for TabStrip<'_> {
     type State = ();
@@ -1824,14 +1862,13 @@ impl canvas::Program<Message> for TabStrip<'_> {
         vec![frame.into_geometry()]
     }
 
-
     fn update(
         &self,
         _state: &mut Self::State,
-        event: canvas::Event,
+        event: &canvas::Event,
         bounds: Rectangle,
         cursor: iced::mouse::Cursor,
-    ) -> (canvas::event::Status, Option<Message>) {
+    ) -> Option<canvas::Action<Message>> {
         use iced::mouse::Button;
         let over = cursor
             .position_over(bounds)
@@ -1847,47 +1884,47 @@ impl canvas::Program<Message> for TabStrip<'_> {
                     iced::mouse::ScrollDelta::Pixels { y, .. } => -y,
                 };
                 if d != 0.0 {
-                    return (canvas::event::Status::Captured, Some(Message::TabScroll(d)));
+                    return Some(canvas::Action::publish(Message::TabScroll(d)).and_capture());
                 }
             }
         }
         if let canvas::Event::Mouse(iced::mouse::Event::ButtonPressed(button)) = event {
             let Some(p) = over else {
-                return (canvas::event::Status::Ignored, None);
+                return None;
             };
             match button {
                 Button::Left => {
                     if self.plus_at(p.x, p.y) {
-                        return (canvas::event::Status::Captured, Some(Message::NewTab));
+                        return Some(canvas::Action::publish(Message::NewTab).and_capture());
                     }
                     if let Some(i) = self.tab_at(p.x, p.y) {
                         // matches the drawn zone: 18px ending at the tab
                         // body's right edge (inside the teardrop's curl),
                         // in content space like the drawn rect
-                        let x_zone = STRIP_LEFT + i as f32 * TAB_SLOT_W + TAB_W - 28.0
-                            - self.app.tab_scroll;
+                        let x_zone =
+                            STRIP_LEFT + i as f32 * TAB_SLOT_W + TAB_W - 28.0 - self.app.tab_scroll;
                         let msg = if p.x >= x_zone {
                             Message::CloseTab(i)
                         } else {
                             Message::TabPressed(i)
                         };
-                        return (canvas::event::Status::Captured, Some(msg));
+                        return Some(canvas::Action::publish(msg).and_capture());
                     }
                 }
                 Button::Middle => {
                     if let Some(i) = self.tab_at(p.x, p.y) {
-                        return (canvas::event::Status::Captured, Some(Message::CloseTab(i)));
+                        return Some(canvas::Action::publish(Message::CloseTab(i)).and_capture());
                     }
                 }
                 Button::Right => {
                     if let Some(i) = self.tab_at(p.x, p.y) {
-                        return (canvas::event::Status::Captured, Some(Message::TabMenu(i)));
+                        return Some(canvas::Action::publish(Message::TabMenu(i)).and_capture());
                     }
                 }
                 _ => {}
             }
         }
-        (canvas::event::Status::Ignored, None)
+        None
     }
 
     fn mouse_interaction(
@@ -1911,7 +1948,10 @@ pub(crate) fn truncate_title(title: &str, max: usize) -> String {
     }
     format!(
         "{}\u{2026}",
-        title.chars().take(max.saturating_sub(1)).collect::<String>()
+        title
+            .chars()
+            .take(max.saturating_sub(1))
+            .collect::<String>()
     )
 }
 
@@ -1928,20 +1968,23 @@ fn vim_menu_overlay(app: &App, at: &Point) -> Element<'static, Message> {
         button(
             row![
                 text(label.to_string()).size(12.0).color(theme::TEXT),
-                horizontal_space(),
+                space::horizontal(),
                 if active {
                     Element::from(mark_svg(MARK_CHECK, theme::TEXT))
                 } else {
-                    Element::from(
-                        text("".to_string()).size(11.0).color(Color::TRANSPARENT),
-                    )
+                    Element::from(text("".to_string()).size(11.0).color(Color::TRANSPARENT))
                 },
             ]
             .spacing(4)
             .align_y(iced::alignment::Vertical::Center),
         )
         .width(Fill)
-        .padding(iced::Padding { top: 8.0, right: 10.0, bottom: 6.0, left: 10.0 })
+        .padding(iced::Padding {
+            top: 8.0,
+            right: 10.0,
+            bottom: 6.0,
+            left: 10.0,
+        })
         .style(move |_t, s| {
             let mut st = tool_button_style();
             if s == iced::widget::button::Status::Hovered {
@@ -1954,11 +1997,7 @@ fn vim_menu_overlay(app: &App, at: &Point) -> Element<'static, Message> {
     let panel = container(
         column![
             item("Vim Mode", app.config.vim, Message::VimMode(true)),
-            item(
-                "Regular Editor",
-                !app.config.vim,
-                Message::VimMode(false)
-            ),
+            item("Regular Editor", !app.config.vim, Message::VimMode(false)),
         ]
         .spacing(2)
         .padding(4),
@@ -2126,11 +2165,17 @@ const PICKER_BG: Color = Color::from_rgb(0.312, 0.337, 0.380); // #505661
 const HEADER_PALETTE: [&str; 9] = [
     // top: blue, navy, the DEFAULT header color (theme::HEADER_BG — the
     // same dark a table without `headercolor` renders)
-    "#1e69fd", "#2d5f8a", crate::theme::DARK_HEADER_HEX,
+    "#1e69fd",
+    "#2d5f8a",
+    crate::theme::DARK_HEADER_HEX,
     // middle: green, teal, purple
-    "#1f8a4c", "#16a085", "#8e44ad",
+    "#1f8a4c",
+    "#16a085",
+    "#8e44ad",
     // bottom: orange, red-orange, red
-    "#e67e22", "#d35400", "#e74c3c",
+    "#e67e22",
+    "#d35400",
+    "#e74c3c",
 ];
 
 /// The header-color menu (click the palette glyph on a hovered header): a
@@ -2155,41 +2200,38 @@ fn table_header_menu_overlay(app: &App, menu: &TableHeaderMenu) -> Element<'stat
     // the right message per target.
     type PickFn = Box<dyn Fn(Option<String>) -> Message>;
     let (current, pick_msg): (Option<String>, PickFn) = match &menu.target {
-            crate::app::PickerTarget::Table(node) => (
-                app.diagram()
-                    .boxes
-                    .iter()
-                    .find(|b| b.node == *node)
-                    .and_then(|b| b.header_color.clone()),
-                {
-                    let node = *node;
-                    Box::new(move |hex: Option<String>| Message::TableHeaderColor(node, hex))
-                },
-            ),
-            crate::app::PickerTarget::Group(name) => (
-                app.diagram()
-                    .groups
-                    .iter()
-                    .find(|g| g.name == name.as_str())
-                    .and_then(|g| g.color.clone()),
-                {
-                    let name = name.clone();
-                    Box::new(move |hex: Option<String>| Message::GroupColor(name.clone(), hex))
-                },
-            ),
-            // a relationship line: its resolved color (explicit
-            // [color:] or the referenced table's inheritance)
-            crate::app::PickerTarget::Edge(ei) => (
-                app.diagram()
-                    .edges
-                    .get(*ei)
-                    .and_then(|e| e.color.clone()),
-                {
-                    let ei = *ei;
-                    Box::new(move |hex: Option<String>| Message::EdgeColor(ei, hex))
-                },
-            ),
-        };
+        crate::app::PickerTarget::Table(node) => (
+            app.diagram()
+                .boxes
+                .iter()
+                .find(|b| b.node == *node)
+                .and_then(|b| b.header_color.clone()),
+            {
+                let node = *node;
+                Box::new(move |hex: Option<String>| Message::TableHeaderColor(node, hex))
+            },
+        ),
+        crate::app::PickerTarget::Group(name) => (
+            app.diagram()
+                .groups
+                .iter()
+                .find(|g| g.name == name.as_str())
+                .and_then(|g| g.color.clone()),
+            {
+                let name = name.clone();
+                Box::new(move |hex: Option<String>| Message::GroupColor(name.clone(), hex))
+            },
+        ),
+        // a relationship line: its resolved color (explicit
+        // [color:] or the referenced table's inheritance)
+        crate::app::PickerTarget::Edge(ei) => (
+            app.diagram().edges.get(*ei).and_then(|e| e.color.clone()),
+            {
+                let ei = *ei;
+                Box::new(move |hex: Option<String>| Message::EdgeColor(ei, hex))
+            },
+        ),
+    };
     let swatch = |hex: &str| -> Element<'static, Message> {
         // every swatch is EXPLICIT: the 2px white ring marks the color
         // actually in effect for this target — the dark swatch reads as
@@ -2198,12 +2240,12 @@ fn table_header_menu_overlay(app: &App, menu: &TableHeaderMenu) -> Element<'stat
         let picked = current.as_deref() == Some(hex);
         let base = theme::hex_color(hex).unwrap_or(theme::PANEL);
         button(text("").size(10.0))
-        // zero padding: the button's default padding would shrink the
-        // content box below the glyph and the renderer skips it entirely
-        // (the label vanished on every fixed-size button until this)
-        .padding(0.0)
-        .width(Length::Fixed(16.0))
-        .height(Length::Fixed(16.0))
+            // zero padding: the button's default padding would shrink the
+            // content box below the glyph and the renderer skips it entirely
+            // (the label vanished on every fixed-size button until this)
+            .padding(0.0)
+            .width(Length::Fixed(16.0))
+            .height(Length::Fixed(16.0))
             .style(move |_t, s| {
                 // hover brightening: the swatch tints toward white, dbdiagram's
                 // picker feedback
@@ -2234,11 +2276,9 @@ fn table_header_menu_overlay(app: &App, menu: &TableHeaderMenu) -> Element<'stat
     let mut grid_rows: Vec<Element<'static, Message>> = Vec::new();
     for row in HEADER_PALETTE.chunks(3) {
         grid_rows.push(
-            iced::widget::Row::with_children(
-                row.iter().map(|hex| swatch(hex)).collect::<Vec<_>>(),
-            )
-            .spacing(CELL - 16.0)
-            .into(),
+            iced::widget::Row::with_children(row.iter().map(|hex| swatch(hex)).collect::<Vec<_>>())
+                .spacing(CELL - 16.0)
+                .into(),
         );
     }
     // a color TYPED into the DBML by hand (any hex) is outside the 9
@@ -2313,12 +2353,12 @@ fn table_header_menu_overlay(app: &App, menu: &TableHeaderMenu) -> Element<'stat
         .into(),
     );
     let panel = container(column(grid_rows).spacing(CELL - 16.0).padding(8))
-    .width(Length::Fixed(MENU_W))
-    .style(|_t| container::Style {
-        background: Some(iced::Background::Color(PICKER_BG)),
-        border: iced::border::rounded(8).color(theme::BORDER),
-        ..Default::default()
-    });
+        .width(Length::Fixed(MENU_W))
+        .style(|_t| container::Style {
+            background: Some(iced::Background::Color(PICKER_BG)),
+            border: iced::border::rounded(8).color(theme::BORDER),
+            ..Default::default()
+        });
     // click outside the diagram canvas dismisses the menu — ON THE PRESS
     // (mousedown), so the same gesture that closes the picker can already
     // act underneath: dragging a table by its header needs no extra click
@@ -2432,10 +2472,10 @@ impl canvas::Program<Message> for DismissSheet {
     fn update(
         &self,
         _state: &mut Self::State,
-        event: canvas::Event,
+        event: &canvas::Event,
         bounds: Rectangle,
         cursor: iced::mouse::Cursor,
-    ) -> (canvas::event::Status, Option<Message>) {
+    ) -> Option<canvas::Action<Message>> {
         match event {
             canvas::Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left)) => {
                 let inside_hole = self
@@ -2445,12 +2485,12 @@ impl canvas::Program<Message> for DismissSheet {
                 if inside_hole {
                     // the diagram canvas handles it: dismiss + grab in one
                     // gesture happens there
-                    (canvas::event::Status::Ignored, None)
+                    None
                 } else {
-                    (canvas::event::Status::Captured, Some(Message::DismissTableHeaderMenu))
+                    Some(canvas::Action::publish(Message::DismissTableHeaderMenu).and_capture())
                 }
             }
-            _ => (canvas::event::Status::Ignored, None),
+            _ => None,
         }
     }
 
@@ -2488,10 +2528,7 @@ fn diagram_canvas_rect(app: &App) -> Option<Rectangle> {
     };
     Some(Rectangle::new(
         Point::new(x, DIAGRAM_CANVAS_TOP - 1.0),
-        Size::new(
-            (w - x).max(0.0),
-            (h - DIAGRAM_CANVAS_TOP + 1.0).max(0.0),
-        ),
+        Size::new((w - x).max(0.0), (h - DIAGRAM_CANVAS_TOP + 1.0).max(0.0)),
     ))
 }
 
@@ -2597,9 +2634,10 @@ fn editor_toolbar(app: &App) -> Element<'static, Message> {
                     let mut st = toolbar_button_style(s);
                     if active {
                         st.background = Some(iced::Background::Color(match s {
-                            iced::widget::button::Status::Hovered => {
-                                Color { a: 0.85, ..theme::FK }
-                            }
+                            iced::widget::button::Status::Hovered => Color {
+                                a: 0.85,
+                                ..theme::FK
+                            },
                             _ => theme::FK,
                         }));
                         st.border = iced::border::rounded(6).color(theme::FK);
@@ -2640,14 +2678,19 @@ fn editor_toolbar(app: &App) -> Element<'static, Message> {
         .width(Length::Fixed(11.0))
         .height(Length::Fixed(11.0))
     };
-    let (checked, mark_ink) = (app.config.fmt_on_save, if app.config.fmt_on_save {
-        theme::FK
-    } else {
-        theme::DIM
-    });
+    let (checked, mark_ink) = (
+        app.config.fmt_on_save,
+        if app.config.fmt_on_save {
+            theme::FK
+        } else {
+            theme::DIM
+        },
+    );
     let fmt_switch = button(
         row![
-            text("Format on Save".to_string()).size(11.0).color(mark_ink),
+            text("Format on Save".to_string())
+                .size(11.0)
+                .color(mark_ink),
             container(checkbox(checked, mark_ink)),
         ]
         .spacing(5)
@@ -2656,7 +2699,12 @@ fn editor_toolbar(app: &App) -> Element<'static, Message> {
     // the 11px label's ink sits ~2.5px above its line-box center (no
     // descenders): the heavier top padding drops it onto the button's
     // true center, checkbox riding along
-    .padding(iced::Padding { top: 5.0, right: 8.0, bottom: 4.0, left: 8.0 })
+    .padding(iced::Padding {
+        top: 5.0,
+        right: 8.0,
+        bottom: 4.0,
+        left: 8.0,
+    })
     .style(move |_t, s| toolbar_button_style(s))
     .on_press(Message::ToggleFmtOnSave);
     // the mode switch shows the CURRENT mode (what you are in, not what a
@@ -2677,7 +2725,12 @@ fn editor_toolbar(app: &App) -> Element<'static, Message> {
             .spacing(5)
             .align_y(iced::alignment::Vertical::Center),
         )
-        .padding(iced::Padding { top: 5.0, right: 8.0, bottom: 4.0, left: 8.0 })
+        .padding(iced::Padding {
+            top: 5.0,
+            right: 8.0,
+            bottom: 4.0,
+            left: 8.0,
+        })
         .style(move |_t, s| toolbar_button_style(s))
         .on_press(Message::VimMenuOpen),
     )
@@ -2696,7 +2749,13 @@ fn editor_toolbar(app: &App) -> Element<'static, Message> {
     .into();
     let row = row![
         save_slot,
-        icon_btn(ICON_SAVE_AS, "Save As (F12)", Message::SaveAsPrompt, true, false),
+        icon_btn(
+            ICON_SAVE_AS,
+            "Save As (F12)",
+            Message::SaveAsPrompt,
+            true,
+            false
+        ),
         icon_btn(
             ICON_UNDO,
             "Undo (Ctrl+Z)",
@@ -2721,7 +2780,7 @@ fn editor_toolbar(app: &App) -> Element<'static, Message> {
         icon_btn(ICON_FORMAT, "Format", Message::FormatNow, true, false),
         fmt_switch,
         vim_switch,
-        horizontal_space(),
+        space::horizontal(),
         // F1 in button form: the editor over the whole pane row; the
         // expand/contract glyph + fill track the maximized state
         icon_btn(
@@ -2771,7 +2830,7 @@ fn find_bar_overlay(app: &App) -> Option<Element<'_, Message>> {
     let caret = || {
         // 1px — a native input caret's width (the 2px bar read as a blob
         // at the 12px font)
-        container(horizontal_space())
+        container(space::horizontal())
             .width(Length::Fixed(1.0))
             .height(Length::Fixed(13.0))
             .style(move |_t| container::Style {
@@ -2828,13 +2887,14 @@ fn find_bar_overlay(app: &App) -> Option<Element<'_, Message>> {
         let mut inner = row![span(&input[..bytes(lo)], theme::TEXT)];
         if hi > lo {
             inner = inner.push(
-                container(mono(&input[bytes(lo)..bytes(hi)], theme::TEXT))
-                    .style(move |_t| container::Style {
+                container(mono(&input[bytes(lo)..bytes(hi)], theme::TEXT)).style(move |_t| {
+                    container::Style {
                         background: Some(iced::Background::Color(Color::from_rgba(
                             0.3, 0.5, 0.9, 0.45,
                         ))),
                         ..Default::default()
-                    }),
+                    }
+                }),
             );
         }
         inner.push(span(&input[bytes(hi)..], theme::TEXT))
@@ -2868,23 +2928,21 @@ fn find_bar_overlay(app: &App) -> Option<Element<'_, Message>> {
         .width(Fill)
         .height(Fill),
     )
-        .padding([0, 8])
-        .width(Fill)
-        .height(Length::Fixed(22.0))
-        .align_y(iced::alignment::Vertical::Center)
-        .style(|_t| container::Style {
-            background: Some(iced::Background::Color(theme::BG)),
-            border: iced::border::rounded(4).color(theme::BORDER),
-            ..Default::default()
-        });
+    .padding([0, 8])
+    .width(Fill)
+    .height(Length::Fixed(22.0))
+    .align_y(iced::alignment::Vertical::Center)
+    .style(|_t| container::Style {
+        background: Some(iced::Background::Color(theme::BG)),
+        border: iced::border::rounded(4).color(theme::BORDER),
+        ..Default::default()
+    });
     let zone_btn = |label: &'static str, msg: Message| {
         button(text(label.to_string()).size(12.0).color(theme::TEXT))
             .padding([3, 8])
             .style(|_t, s| iced::widget::button::Style {
                 background: Some(iced::Background::Color(match s {
-                    iced::widget::button::Status::Hovered => {
-                        Color::from_rgba(1.0, 1.0, 1.0, 0.08)
-                    }
+                    iced::widget::button::Status::Hovered => Color::from_rgba(1.0, 1.0, 1.0, 0.08),
                     _ => Color::TRANSPARENT,
                 })),
                 border: iced::border::rounded(4),
@@ -2896,11 +2954,7 @@ fn find_bar_overlay(app: &App) -> Option<Element<'_, Message>> {
         .spacing(6)
         .align_y(iced::alignment::Vertical::Center);
     if total > 0 {
-        bar = bar.push(
-            text(format!("{idx}/{total}"))
-                .size(11.0)
-                .color(theme::DIM),
-        );
+        bar = bar.push(text(format!("{idx}/{total}")).size(11.0).color(theme::DIM));
     }
     bar = bar
         .push(zone_btn("<", Message::FindPrev))
@@ -2909,9 +2963,7 @@ fn find_bar_overlay(app: &App) -> Option<Element<'_, Message>> {
     // the bar swallows its own clicks: a press on its surface (field,
     // counter, padding) must not fall through to the editor canvas and
     // move the caret to the clicked line
-    let bar: Element<'_, Message> = mouse_area(bar)
-        .on_press(Message::PanelSwallowed)
-        .into();
+    let bar: Element<'_, Message> = mouse_area(bar).on_press(Message::PanelSwallowed).into();
     // the bar floats as a card (clearly lighter than the editor bg), its
     // content centered in the 34px strip
     Some(
@@ -2943,7 +2995,7 @@ fn vim_search_overlay(app: &App) -> Option<Element<'_, Message>> {
     let mut line = row![
         text("/".to_string()).size(12.0).color(theme::DIM),
         text(q).size(12.0).color(theme::TEXT),
-        container(horizontal_space())
+        container(space::horizontal())
             .width(Length::Fixed(1.5))
             .height(Length::Fixed(14.0))
             .style(|_t| container::Style {
@@ -2954,17 +3006,11 @@ fn vim_search_overlay(app: &App) -> Option<Element<'_, Message>> {
     .spacing(3)
     .align_y(iced::alignment::Vertical::Center);
     if total > 0 {
-        line = line.push(
-            text(format!("{idx}/{total}"))
-                .size(11.0)
-                .color(theme::DIM),
-        );
+        line = line.push(text(format!("{idx}/{total}")).size(11.0).color(theme::DIM));
     }
     // the prompt swallows its clicks too: same pass-through hazard as
     // the find bar (a press would land on the editor underneath)
-    let line: Element<'_, Message> = mouse_area(line)
-        .on_press(Message::PanelSwallowed)
-        .into();
+    let line: Element<'_, Message> = mouse_area(line).on_press(Message::PanelSwallowed).into();
     Some(
         container(line)
             .padding([5, 10])
@@ -3002,10 +3048,7 @@ fn start_screen(_app: &App) -> Element<'static, Message> {
     // the three entry points as vertically stacked cards — icon, title,
     // short description (a card reads as a choice; a bare button doesn't
     // say what it does)
-    let card = |icon: &'static [u8],
-                title: &'static str,
-                desc: &'static str,
-                msg: Message| {
+    let card = |icon: &'static [u8], title: &'static str, desc: &'static str, msg: Message| {
         button(
             row![
                 iced::widget::svg(iced::widget::svg::Handle::from_memory(icon))
@@ -3034,18 +3077,14 @@ fn start_screen(_app: &App) -> Element<'static, Message> {
             // the old hover fill (theme::PANEL) EQUALS the splash bg and
             // the card vanished under the pointer
             background: Some(iced::Background::Color(match s {
-                iced::widget::button::Status::Hovered => {
-                    Color::from_rgb8(0x33, 0x36, 0x3e)
-                }
+                iced::widget::button::Status::Hovered => Color::from_rgb8(0x33, 0x36, 0x3e),
                 _ => Color::from_rgb8(0x2a, 0x2d, 0x35),
             })),
             text_color: theme::TEXT,
-            border: iced::border::rounded(8)
-                .width(1.0)
-                .color(match s {
-                    iced::widget::button::Status::Hovered => theme::TEXT,
-                    _ => theme::BORDER,
-                }),
+            border: iced::border::rounded(8).width(1.0).color(match s {
+                iced::widget::button::Status::Hovered => theme::TEXT,
+                _ => theme::BORDER,
+            }),
             ..Default::default()
         })
         .on_press(msg)
@@ -3133,9 +3172,10 @@ fn tool_button_style() -> iced::widget::button::Style {
 fn toolbar_button_style(s: iced::widget::button::Status) -> iced::widget::button::Style {
     iced::widget::button::Style {
         background: Some(iced::Background::Color(match s {
-            iced::widget::button::Status::Hovered => {
-                Color { a: 0.08, ..theme::TEXT }
-            }
+            iced::widget::button::Status::Hovered => Color {
+                a: 0.08,
+                ..theme::TEXT
+            },
             _ => Color::TRANSPARENT,
         })),
         text_color: theme::TEXT,
@@ -3182,11 +3222,11 @@ fn diagram_button(
     msg: Message,
     active: bool,
 ) -> iced::widget::Button<'static, Message> {
-    button(text(label).size(11.0).color(if active {
-        Color::WHITE
-    } else {
-        theme::TEXT
-    }))
+    button(
+        text(label)
+            .size(11.0)
+            .color(if active { Color::WHITE } else { theme::TEXT }),
+    )
     .padding([3, 8])
     .style(move |_t, s| {
         let mut st = tool_button_style();
@@ -3194,9 +3234,10 @@ fn diagram_button(
             // the toggle's on-state: a filled blue — the primary accent
             // (the pane switches read the same when on)
             st.background = Some(iced::Background::Color(match s {
-                iced::widget::button::Status::Hovered => {
-                    Color { a: 0.85, ..theme::FK }
-                }
+                iced::widget::button::Status::Hovered => Color {
+                    a: 0.85,
+                    ..theme::FK
+                },
                 _ => theme::FK,
             }));
             st.border = iced::border::rounded(6).color(theme::FK);
@@ -3211,16 +3252,20 @@ fn diagram_button(
 fn edge_overlay(app: &App) -> Element<'_, Message> {
     // below the tab strip: strip 30, panes flush
     const PANES_TOP: f32 = 30.0;
-    container(canvas(EdgeHandle).width(Length::Fixed(EDGE_STRIP_W)).height(Fill))
-        .width(Fill)
-        .height(Fill)
-        .padding(iced::Padding {
-            top: PANES_TOP,
-            right: 0.0,
-            bottom: 0.0,
-            left: (app.seam_x() - EDGE_STRIP_W / 2.0).max(0.0),
-        })
-        .into()
+    container(
+        canvas(EdgeHandle)
+            .width(Length::Fixed(EDGE_STRIP_W))
+            .height(Fill),
+    )
+    .width(Fill)
+    .height(Fill)
+    .padding(iced::Padding {
+        top: PANES_TOP,
+        right: 0.0,
+        bottom: 0.0,
+        left: (app.seam_x() - EDGE_STRIP_W / 2.0).max(0.0),
+    })
+    .into()
 }
 
 /// Width of the invisible resize strip hugging the seam (a few px into
@@ -3243,17 +3288,17 @@ impl canvas::Program<Message> for EdgeHandle {
     fn update(
         &self,
         _state: &mut Self::State,
-        event: canvas::Event,
+        event: &canvas::Event,
         bounds: iced::Rectangle,
         cursor: iced::mouse::Cursor,
-    ) -> (canvas::event::Status, Option<Message>) {
+    ) -> Option<canvas::Action<Message>> {
         // The canvas widget forwards every window event; only presses
         // that land on the strip act. (Ungated, any click in the editor
         // also began a resize, so a click near the window's left edge
         // snapped the split to its minimum.)
         let over = cursor.position_over(bounds);
         if over.is_none() {
-            return (canvas::event::Status::Ignored, None);
+            return None;
         }
         if let canvas::Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left)) =
             event
@@ -3264,14 +3309,11 @@ impl canvas::Program<Message> for EdgeHandle {
                 // editor side of the seam: the overlay scrollbar band (and
                 // the text margin beside it) belongs to the editor canvas,
                 // which places the caret or starts a scrollbar drag there
-                return (canvas::event::Status::Ignored, None);
+                return None;
             }
-            return (
-                canvas::event::Status::Captured,
-                Some(Message::DividerPressed),
-            );
+            return Some(canvas::Action::publish(Message::DividerPressed).and_capture());
         }
-        (canvas::event::Status::Ignored, None)
+        None
     }
 
     fn draw(
@@ -3350,9 +3392,10 @@ fn diagram_max_button(maximized: bool) -> Element<'static, Message> {
                 let mut st = tool_button_style();
                 if maximized {
                     st.background = Some(iced::Background::Color(match s {
-                        iced::widget::button::Status::Hovered => {
-                            Color { a: 0.85, ..theme::FK }
-                        }
+                        iced::widget::button::Status::Hovered => Color {
+                            a: 0.85,
+                            ..theme::FK
+                        },
                         _ => theme::FK,
                     }));
                     st.border = iced::border::rounded(6).color(theme::FK);
@@ -3372,8 +3415,6 @@ fn diagram_max_button(maximized: bool) -> Element<'static, Message> {
     .into()
 }
 
-
-
 /// Invisible listener canvas covering the diagram pane: the frozen
 /// `Diagram` widget only forwards LEFT presses, so this stacked twin turns
 /// a RIGHT press into `CanvasRightPressed` (canvas-local px) — the entry
@@ -3387,24 +3428,24 @@ impl canvas::Program<Message> for DiagramRightClick {
     fn update(
         &self,
         _state: &mut Self::State,
-        event: canvas::Event,
+        event: &canvas::Event,
         bounds: Rectangle,
         cursor: iced::mouse::Cursor,
-    ) -> (canvas::event::Status, Option<Message>) {
+    ) -> Option<canvas::Action<Message>> {
         if let canvas::Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Right)) =
             event
         {
             if let Some(p) = cursor.position_over(bounds) {
-                return (
-                    canvas::event::Status::Captured,
-                    Some(Message::CanvasRightPressed(Point::new(
+                return Some(
+                    canvas::Action::publish(Message::CanvasRightPressed(Point::new(
                         p.x - bounds.x,
                         p.y - bounds.y,
-                    ))),
+                    )))
+                    .and_capture(),
                 );
             }
         }
-        (canvas::event::Status::Ignored, None)
+        None
     }
 
     fn draw(
@@ -3469,7 +3510,6 @@ fn seam_panel_style(_seam: Seam) -> container::Style {
 const CHEVRON_RIGHT: &str = "M285.476 272.971L91.132 467.314c-9.373 9.373-24.569 9.373-33.941 0l-22.667-22.667c-9.357-9.357-9.375-24.522-.04-33.901L188.505 256 34.484 101.255c-9.335-9.379-9.317-24.544.04-33.901l22.667-22.667c9.373-9.373 24.569-9.373 33.941 0L285.475 239.03c9.373 9.372 9.373 24.568.001 33.941z";
 const CHEVRON_DOWN: &str = "M31.3 192h257.3c17.8 0 26.7 21.5 14.1 34.1L174.1 354.8c-7.8 7.8-20.5 7.8-28.3 0L17.2 226.1C4.6 213.5 13.5 192 31.3 192z";
 
-
 /// FA times-circle (the error pill's icon), lifted from their bundle.
 const TIMES_CIRCLE: &str = "M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm121.6 313.1c4.7 4.7 4.7 12.3 0 17L338 377.6c-4.7 4.7-12.3 4.7-17 0L256 312l-65.1 65.6c-4.7 4.7-12.3 4.7-17 0L134.4 338c-4.7-4.7-4.7-12.3 0-17l65.6-65-65.6-65.1c-4.7-4.7-4.7-12.3 0-17l39.6-39.6c4.7-4.7 12.3-4.7 17 0l65 65.7 65.1-65.6c4.7-4.7 12.3-4.7 17 0l39.6 39.6c4.7 4.7 4.7 12.3 0 17L312 256l65.6 65.1z";
 /// FA exclamation-triangle (their `triangle-exclamation` warning severity
@@ -3503,7 +3543,6 @@ fn chevron_svg(down: bool) -> Element<'static, Message> {
     chevron_svg_colored(down, Color::from_rgb8(0x76, 0x7a, 0x97), 10.0)
 }
 
-
 /// The chevron in an arbitrary ink (the fix selector's sits on a mid-gray
 /// button, where the default gray-500 disappears).
 fn chevron_svg_colored(down: bool, ink: Color, size: f32) -> Element<'static, Message> {
@@ -3528,40 +3567,170 @@ fn chevron_svg_colored(down: bool, ink: Color, size: f32) -> Element<'static, Me
 /// The problems panel's inks (live-sampled computed styles from their
 /// dark theme): the panel surface family, the gray text scale, the
 /// severity dots, and the NOW/FIXED diff accents.
-const DIAG_BG: Color = Color { r: 0.133, g: 0.133, b: 0.133, a: 1.0 }; // #222222
+const DIAG_BG: Color = Color {
+    r: 0.133,
+    g: 0.133,
+    b: 0.133,
+    a: 1.0,
+}; // #222222
 /// The NOW/FIXED diff cells: an inset darker than the #222 panel (the
 /// editor canvas shares the old panel tone, so the panel surface moved
 /// to the record-modal family).
-const DIAG_CELL_BG: Color = Color { r: 0.110, g: 0.129, b: 0.157, a: 1.0 }; // #1C2128
-const DIAG_DIVIDER: Color = Color { r: 0.184, g: 0.184, b: 0.184, a: 1.0 }; // #2F2F2F
-const DIAG_BORDER: Color = Color { r: 0.275, g: 0.298, b: 0.345, a: 1.0 }; // #464C58
-const DIAG_FOOTER: Color = Color { r: 0.153, g: 0.165, b: 0.180, a: 1.0 }; // #272A2E
-const DIAG_ROW_ACTIVE: Color = Color { r: 0.157, g: 0.157, b: 0.157, a: 1.0 }; // #282828
-const DIAG_GRAY_50: Color = Color { r: 0.937, g: 0.941, b: 0.953, a: 1.0 }; // #EFF0F3
-const DIAG_GRAY_100: Color = Color { r: 0.835, g: 0.855, b: 0.882, a: 1.0 }; // #D5DAE1
-const DIAG_GRAY_200: Color = Color { r: 0.733, g: 0.757, b: 0.800, a: 1.0 }; // #BBC1CC
-const DIAG_GRAY_300: Color = Color { r: 0.627, g: 0.659, b: 0.718, a: 1.0 }; // #A0A8B7
-const DIAG_GRAY_500: Color = Color { r: 0.463, g: 0.510, b: 0.592, a: 1.0 }; // #768297
-const DIAG_GRAY_600: Color = Color { r: 0.404, g: 0.451, b: 0.522, a: 1.0 }; // #677385
-const DIAG_GRAY_700: Color = Color { r: 0.337, g: 0.373, b: 0.431, a: 1.0 }; // #565F6E
-const DIAG_GRAY_800: Color = Color { r: 0.275, g: 0.298, b: 0.345, a: 1.0 }; // #464C58
-const DIAG_GRAY_900: Color = Color { r: 0.196, g: 0.216, b: 0.251, a: 1.0 }; // #323740
-const DIAG_RED_DOT: Color = Color { r: 0.980, g: 0.510, b: 0.510, a: 1.0 }; // #FA8282
-const DIAG_BLUE_DOT: Color = Color { r: 0.349, g: 0.733, b: 1.0, a: 1.0 }; // #59BBFF
-const DIAG_RED_EDGE: Color = Color { r: 0.945, g: 0.471, b: 0.455, a: 1.0 }; // #F17874
-const DIAG_GREEN_EDGE: Color = Color { r: 0.247, g: 0.745, b: 0.553, a: 1.0 }; // #3FBE8D
-const DIAG_RED_LABEL: Color = Color { r: 0.965, g: 0.647, b: 0.635, a: 1.0 }; // #F6A5A2
-const DIAG_GREEN_LABEL: Color = Color { r: 0.541, g: 0.851, b: 0.729, a: 1.0 }; // #8AD9BA
-const DIAG_RED_MARK_TEXT: Color = Color { r: 1.0, g: 0.831, b: 0.851, a: 1.0 }; // #FFD4D9
-const DIAG_GREEN_MARK_TEXT: Color = Color { r: 0.867, g: 0.953, b: 0.925, a: 1.0 }; // #DDF3EC
-const DIAG_RED_MARK_BG: Color = Color { r: 0.933, g: 0.267, b: 0.251, a: 1.0 }; // #EE4440
-const DIAG_GREEN_MARK_BG: Color = Color { r: 0.0, g: 0.478, b: 0.294, a: 1.0 }; // #007A4B
-const DIAG_APPLY: Color = Color { r: 0.016, g: 0.549, b: 1.0, a: 1.0 }; // #048CFF
+const DIAG_CELL_BG: Color = Color {
+    r: 0.110,
+    g: 0.129,
+    b: 0.157,
+    a: 1.0,
+}; // #1C2128
+const DIAG_DIVIDER: Color = Color {
+    r: 0.184,
+    g: 0.184,
+    b: 0.184,
+    a: 1.0,
+}; // #2F2F2F
+const DIAG_BORDER: Color = Color {
+    r: 0.275,
+    g: 0.298,
+    b: 0.345,
+    a: 1.0,
+}; // #464C58
+const DIAG_FOOTER: Color = Color {
+    r: 0.153,
+    g: 0.165,
+    b: 0.180,
+    a: 1.0,
+}; // #272A2E
+const DIAG_ROW_ACTIVE: Color = Color {
+    r: 0.157,
+    g: 0.157,
+    b: 0.157,
+    a: 1.0,
+}; // #282828
+const DIAG_GRAY_50: Color = Color {
+    r: 0.937,
+    g: 0.941,
+    b: 0.953,
+    a: 1.0,
+}; // #EFF0F3
+const DIAG_GRAY_100: Color = Color {
+    r: 0.835,
+    g: 0.855,
+    b: 0.882,
+    a: 1.0,
+}; // #D5DAE1
+const DIAG_GRAY_200: Color = Color {
+    r: 0.733,
+    g: 0.757,
+    b: 0.800,
+    a: 1.0,
+}; // #BBC1CC
+const DIAG_GRAY_300: Color = Color {
+    r: 0.627,
+    g: 0.659,
+    b: 0.718,
+    a: 1.0,
+}; // #A0A8B7
+const DIAG_GRAY_500: Color = Color {
+    r: 0.463,
+    g: 0.510,
+    b: 0.592,
+    a: 1.0,
+}; // #768297
+const DIAG_GRAY_600: Color = Color {
+    r: 0.404,
+    g: 0.451,
+    b: 0.522,
+    a: 1.0,
+}; // #677385
+const DIAG_GRAY_700: Color = Color {
+    r: 0.337,
+    g: 0.373,
+    b: 0.431,
+    a: 1.0,
+}; // #565F6E
+const DIAG_GRAY_800: Color = Color {
+    r: 0.275,
+    g: 0.298,
+    b: 0.345,
+    a: 1.0,
+}; // #464C58
+const DIAG_GRAY_900: Color = Color {
+    r: 0.196,
+    g: 0.216,
+    b: 0.251,
+    a: 1.0,
+}; // #323740
+const DIAG_RED_DOT: Color = Color {
+    r: 0.980,
+    g: 0.510,
+    b: 0.510,
+    a: 1.0,
+}; // #FA8282
+const DIAG_BLUE_DOT: Color = Color {
+    r: 0.349,
+    g: 0.733,
+    b: 1.0,
+    a: 1.0,
+}; // #59BBFF
+const DIAG_RED_EDGE: Color = Color {
+    r: 0.945,
+    g: 0.471,
+    b: 0.455,
+    a: 1.0,
+}; // #F17874
+const DIAG_GREEN_EDGE: Color = Color {
+    r: 0.247,
+    g: 0.745,
+    b: 0.553,
+    a: 1.0,
+}; // #3FBE8D
+const DIAG_RED_LABEL: Color = Color {
+    r: 0.965,
+    g: 0.647,
+    b: 0.635,
+    a: 1.0,
+}; // #F6A5A2
+const DIAG_GREEN_LABEL: Color = Color {
+    r: 0.541,
+    g: 0.851,
+    b: 0.729,
+    a: 1.0,
+}; // #8AD9BA
+const DIAG_RED_MARK_TEXT: Color = Color {
+    r: 1.0,
+    g: 0.831,
+    b: 0.851,
+    a: 1.0,
+}; // #FFD4D9
+const DIAG_GREEN_MARK_TEXT: Color = Color {
+    r: 0.867,
+    g: 0.953,
+    b: 0.925,
+    a: 1.0,
+}; // #DDF3EC
+const DIAG_RED_MARK_BG: Color = Color {
+    r: 0.933,
+    g: 0.267,
+    b: 0.251,
+    a: 1.0,
+}; // #EE4440
+const DIAG_GREEN_MARK_BG: Color = Color {
+    r: 0.0,
+    g: 0.478,
+    b: 0.294,
+    a: 1.0,
+}; // #007A4B
+const DIAG_APPLY: Color = Color {
+    r: 0.016,
+    g: 0.549,
+    b: 1.0,
+    a: 1.0,
+}; // #048CFF
 
 /// The hairline between group headers and entry rows (their
 /// `border-b border-main-gray-dark`, #2F2F2F).
 fn diagnostics_divider() -> Element<'static, Message> {
-    container(horizontal_space())
+    container(space::horizontal())
         .width(Fill)
         .height(Length::Fixed(1.0))
         .style(|_t| container::Style {
@@ -3579,10 +3748,7 @@ fn diagnostics_divider() -> Element<'static, Message> {
 /// padded past it gets a zero-area content rect (invisible).
 fn toolbar_tip_overlay(app: &App) -> Option<Element<'static, Message>> {
     let label = app.toolbar_tip?;
-    let (cx, cy) = app
-        .window_cursor
-        .map(|p| (p.x, p.y))
-        .unwrap_or((0.0, 0.0));
+    let (cx, cy) = app.window_cursor.map(|p| (p.x, p.y)).unwrap_or((0.0, 0.0));
     let x = (cx + 14.0).clamp(2.0, (app.window_size.0 - 160.0).max(2.0));
     let y = (cy + 18.0).clamp(2.0, (app.window_size.1 - 40.0).max(2.0));
     Some(
@@ -3611,7 +3777,10 @@ fn toolbar_tip_overlay(app: &App) -> Option<Element<'static, Message>> {
 fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
     use dbml_ui::dbml::validate::Severity;
     let entries = app.all_diagnostics();
-    let errors = entries.iter().filter(|d| d.severity == Severity::Error).count();
+    let errors = entries
+        .iter()
+        .filter(|d| d.severity == Severity::Error)
+        .count();
     let warnings = entries.len() - errors;
 
     let pill_style = |open: bool, kind: &'static str| {
@@ -3629,7 +3798,10 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                 ),
                 // warning pill: translucent slate + blue count, hover
                 // #374151, open solid blue
-                (_, true) => (iced::Color::from_rgb(0.231, 0.510, 0.965), iced::Color::WHITE),
+                (_, true) => (
+                    iced::Color::from_rgb(0.231, 0.510, 0.965),
+                    iced::Color::WHITE,
+                ),
                 (_, false) => (
                     if s == iced::widget::button::Status::Hovered {
                         iced::Color::from_rgba8(55, 65, 81, 1.0)
@@ -3665,8 +3837,12 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
             button(
                 row![
                     error_icon,
-                    text(if errors == 1 { "1 error".to_string() } else { format!("{errors} errors") })
-                        .size(13),
+                    text(if errors == 1 {
+                        "1 error".to_string()
+                    } else {
+                        format!("{errors} errors")
+                    })
+                    .size(13),
                 ]
                 .spacing(6)
                 .align_y(iced::alignment::Vertical::Center),
@@ -3687,12 +3863,9 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
         };
         pills = pills.push(
             button(
-                row![
-                    triangle_svg(ink, 14.0),
-                    text(warnings.to_string()).size(13),
-                ]
-                .spacing(6)
-                .align_y(iced::alignment::Vertical::Center),
+                row![triangle_svg(ink, 14.0), text(warnings.to_string()).size(13),]
+                    .spacing(6)
+                    .align_y(iced::alignment::Vertical::Center),
             )
             .padding([6, 10])
             .style(pill_style(open, "warn"))
@@ -3742,9 +3915,7 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
             button(
                 row![
                     chevron_svg(!collapsed),
-                    text(name.to_uppercase())
-                        .size(11)
-                        .color(DIAG_GRAY_500),
+                    text(name.to_uppercase()).size(11).color(DIAG_GRAY_500),
                     text(format!("{}", items.len()))
                         .size(11)
                         .color(DIAG_GRAY_700),
@@ -3784,15 +3955,20 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                 // the 6px round severity dot, dropped 8px so it lines up
                 // with the message's first text line (their mt-[8px]
                 // items-start row)
-                let dot_el = container(container(horizontal_space())
+                let dot_el = container(
+                    container(space::horizontal())
                         .width(Length::Fixed(6.0))
                         .height(Length::Fixed(6.0))
                         .style(move |_t| container::Style {
                             background: Some(iced::Background::Color(dot)),
                             border: iced::border::rounded(3),
                             ..Default::default()
-                        }))
-                    .padding(iced::Padding { top: 8.0, ..Default::default() });
+                        }),
+                )
+                .padding(iced::Padding {
+                    top: 8.0,
+                    ..Default::default()
+                });
                 // the message: backticked tokens render as the inline code
                 // chips, flow-wrapped to the row's width budget
                 let panel_w = 520.0f32.min(app.seam_x().max(220.0));
@@ -3813,7 +3989,10 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                                     .color(DIAG_GRAY_700)
                                     .font(theme::mono()),
                             )
-                            .padding(iced::Padding { top: 3.0, ..Default::default() }),
+                            .padding(iced::Padding {
+                                top: 3.0,
+                                ..Default::default()
+                            }),
                         ]
                         .spacing(10)
                         .align_y(iced::alignment::Vertical::Top),
@@ -3845,26 +4024,22 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                     if !d.explanation.is_empty() {
                         let mut bullets = column![].spacing(4);
                         for b in &d.explanation {
-                            bullets = bullets.push(
-                                text(format!("\u{2022} {b}"))
-                                    .size(13)
-                                    .color(DIAG_GRAY_300),
-                            );
+                            bullets = bullets
+                                .push(text(format!("\u{2022} {b}")).size(13).color(DIAG_GRAY_300));
                         }
-                        body = body.push(
-                            container(bullets)
-                                .padding(iced::Padding { left: 16.0, ..Default::default() }),
-                        );
+                        body = body.push(container(bullets).padding(iced::Padding {
+                            left: 16.0,
+                            ..Default::default()
+                        }));
                     }
                     if !d.quick_fixes.is_empty() {
                         // the fix selector: a dropdown when several fixes
                         // exist (the label shows the pick), the blue Apply
                         // beside it — and the inline menu when open
-                        let selected = app
-                            .diagnostics_selected_fix
-                            .min(d.quick_fixes.len() - 1);
+                        let selected = app.diagnostics_selected_fix.min(d.quick_fixes.len() - 1);
                         let mut fix_col = column![].spacing(6);
-                        let mut fix_row = row![].spacing(8).align_y(iced::alignment::Vertical::Center);
+                        let mut fix_row =
+                            row![].spacing(8).align_y(iced::alignment::Vertical::Center);
                         if !d.quick_fixes.is_empty() {
                             fix_row = fix_row.push(
                                 button(
@@ -3886,9 +4061,10 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                                 .style(move |_t, s| iced::widget::button::Style {
                                     background: Some(iced::Background::Color(match s {
                                         // their hover:brightness-110: one step up
-                                        iced::widget::button::Status::Hovered => {
-                                            Color { a: 1.0, ..DIAG_GRAY_700 }
-                                        }
+                                        iced::widget::button::Status::Hovered => Color {
+                                            a: 1.0,
+                                            ..DIAG_GRAY_700
+                                        },
                                         _ => DIAG_GRAY_800,
                                     })),
                                     text_color: DIAG_GRAY_200,
@@ -3900,24 +4076,27 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                         }
                         fix_row = fix_row.push(
                             button(
-                                container(text("Apply fix".to_string()).size(12).color(Color::WHITE))
-                                    .height(Fill)
-                                    .align_y(iced::alignment::Vertical::Center),
+                                container(
+                                    text("Apply fix".to_string()).size(12).color(Color::WHITE),
+                                )
+                                .height(Fill)
+                                .align_y(iced::alignment::Vertical::Center),
                             )
                             .padding([0, 12])
                             .height(Length::Fixed(32.0))
-                                .style(move |_t, s| iced::widget::button::Style {
-                                    background: Some(iced::Background::Color(match s {
-                                        iced::widget::button::Status::Hovered => {
-                                            Color { a: 1.0, ..DIAG_APPLY }
-                                        }
-                                        _ => DIAG_APPLY,
-                                    })),
-                                    text_color: Color::WHITE,
-                                    border: iced::border::rounded(4),
-                                    ..Default::default()
-                                })
-                                .on_press(Message::ApplyDiagnosticFix(*i, selected)),
+                            .style(move |_t, s| iced::widget::button::Style {
+                                background: Some(iced::Background::Color(match s {
+                                    iced::widget::button::Status::Hovered => Color {
+                                        a: 1.0,
+                                        ..DIAG_APPLY
+                                    },
+                                    _ => DIAG_APPLY,
+                                })),
+                                text_color: Color::WHITE,
+                                border: iced::border::rounded(4),
+                                ..Default::default()
+                            })
+                            .on_press(Message::ApplyDiagnosticFix(*i, selected)),
                         );
                         // the NOW/FIXED pair for the SELECTED fix: the
                         // line holding the fix's span, as-is vs rewritten,
@@ -3927,11 +4106,7 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                             let fix_line = src[..fix.span.start].matches('\n').count();
                             if let Some(now) = src.lines().nth(fix_line) {
                                 let line_start = line_col_of(src, fix_line);
-                                let s = fix
-                                    .span
-                                    .start
-                                    .saturating_sub(line_start)
-                                    .min(now.len());
+                                let s = fix.span.start.saturating_sub(line_start).min(now.len());
                                 let e = fix
                                     .span
                                     .end
@@ -3959,7 +4134,10 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                                             "NOW",
                                             DIAG_RED_LABEL,
                                             DIAG_RED_EDGE,
-                                            Color { a: 0.28, ..DIAG_RED_MARK_BG },
+                                            Color {
+                                                a: 0.28,
+                                                ..DIAG_RED_MARK_BG
+                                            },
                                             DIAG_RED_MARK_TEXT,
                                             before.clone(),
                                             marked,
@@ -3975,7 +4153,10 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                                                 "FIXED",
                                                 DIAG_GREEN_LABEL,
                                                 DIAG_GREEN_EDGE,
-                                                Color { a: 0.32, ..DIAG_GREEN_MARK_BG },
+                                                Color {
+                                                    a: 0.32,
+                                                    ..DIAG_GREEN_MARK_BG
+                                                },
                                                 DIAG_GREEN_MARK_TEXT,
                                                 fb,
                                                 fm,
@@ -4008,15 +4189,13 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                                 let selected = f == selected;
                                 menu = menu.push(
                                     button(
-                                        container(
-                                            text(fix.short_title.clone())
-                                                .size(12)
-                                                .color(if selected {
-                                                    Color::WHITE
-                                                } else {
-                                                    DIAG_GRAY_200
-                                                }),
-                                        )
+                                        container(text(fix.short_title.clone()).size(12).color(
+                                            if selected {
+                                                Color::WHITE
+                                            } else {
+                                                DIAG_GRAY_200
+                                            },
+                                        ))
                                         .align_y(iced::alignment::Vertical::Center),
                                     )
                                     .width(Fill)
@@ -4040,32 +4219,34 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                             // the menu floats from the selector's bottom
                             // edge down, its alpha riding the fade
                             fix_stack_layers.push(
-                                container(
-                                    container(menu)
-                                        .width(Length::Fixed(190.0))
-                                        .style(move |_t| container::Style {
-                                            background: Some(iced::Background::Color(Color {
-                                                a: fade,
-                                                ..DIAG_GRAY_900
-                                            })),
-                                            border: iced::border::rounded(12).color(DIAG_BORDER),
-                                            shadow: iced::Shadow {
-                                                color: Color::from_rgba(0.0, 0.0, 0.0, 0.35 * fade),
-                                                offset: iced::Vector::new(0.0, 4.0),
-                                                blur_radius: 10.0,
-                                            },
-                                            ..Default::default()
-                                        }),
-                                )
+                                container(container(menu).width(Length::Fixed(190.0)).style(
+                                    move |_t| container::Style {
+                                        background: Some(iced::Background::Color(Color {
+                                            a: fade,
+                                            ..DIAG_GRAY_900
+                                        })),
+                                        border: iced::border::rounded(12).color(DIAG_BORDER),
+                                        shadow: iced::Shadow {
+                                            color: Color::from_rgba(0.0, 0.0, 0.0, 0.35 * fade),
+                                            offset: iced::Vector::new(0.0, 4.0),
+                                            blur_radius: 10.0,
+                                        },
+                                        ..Default::default()
+                                    },
+                                ))
                                 .width(Fill)
                                 .height(Fill)
                                 .align_x(iced::alignment::Horizontal::Left)
                                 .align_y(iced::alignment::Vertical::Top)
-                                .padding(iced::Padding { top: 32.0, ..Default::default() })
+                                .padding(iced::Padding {
+                                    top: 32.0,
+                                    ..Default::default()
+                                })
                                 .into(),
                             );
                         }
-                        fix_col = fix_col.push(iced::widget::Stack::with_children(fix_stack_layers));
+                        fix_col =
+                            fix_col.push(iced::widget::Stack::with_children(fix_stack_layers));
                         body = body.push(fix_col);
                     }
                     // the expanded card is a click backdrop: a press
@@ -4078,7 +4259,12 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
                     rows.push(
                         container(body)
                             .width(Fill)
-                            .padding(iced::Padding { top: 8.0, right: 12.0, bottom: 14.0, left: 28.0 })
+                            .padding(iced::Padding {
+                                top: 8.0,
+                                right: 12.0,
+                                bottom: 14.0,
+                                left: 28.0,
+                            })
                             .style(|_t| container::Style {
                                 background: Some(iced::Background::Color(DIAG_ROW_ACTIVE)),
                                 ..Default::default()
@@ -4129,7 +4315,7 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
         .height(Fill);
         // the 24px footer band, closed by its border-t
         let footer = column![
-            container(horizontal_space())
+            container(space::horizontal())
                 .width(Fill)
                 .height(Length::Fixed(23.0))
                 .style(|_t| container::Style {
@@ -4151,8 +4337,7 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
     // the pointer hand across its whole bounds — the panel's dead space
     // (padding, footer, gaps) would read as clickable.
     let panel = container(stack![
-        mouse_area(text("").width(Fill).height(Fill))
-            .on_press(Message::PanelSwallowed),
+        mouse_area(text("").width(Fill).height(Fill)).on_press(Message::PanelSwallowed),
         body,
     ])
     .width(Length::Fixed(520.0f32.min(app.seam_x().max(220.0))))
@@ -4177,8 +4362,8 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
     // our backdrop consumes the click, theirs lets it through). A
     // mouse_area, not a button: the button's own pointer hand would paint
     // the WHOLE editor pane — the hand belongs to the list rows only.
-    let backdrop = mouse_area(text("").width(Fill).height(Fill))
-        .on_press(Message::ToggleDiagnostics);
+    let backdrop =
+        mouse_area(text("").width(Fill).height(Fill)).on_press(Message::ToggleDiagnostics);
     stack![
         backdrop,
         container(content)
@@ -4198,10 +4383,7 @@ fn diagnostics_overlay(app: &App) -> Element<'_, Message> {
 
 /// Byte offset of a 0-based line's start (for slicing spans within it).
 fn line_col_of(src: &str, line: usize) -> usize {
-    src.split('\n')
-        .take(line)
-        .map(|l| l.len() + 1)
-        .sum()
+    src.split('\n').take(line).map(|l| l.len() + 1).sum()
 }
 
 /// The message flow-wrapped into rows of segments: a Row can't wrap its
@@ -4268,19 +4450,24 @@ fn message_row(segments: &[(String, bool)]) -> Element<'static, Message> {
 /// An inline code chip: the backticked token's pill (gray-900 body, mono
 /// 12px, 1px 5px pad, radius 4).
 fn code_chip(seg: &str) -> Element<'static, Message> {
-    container(text(seg.to_string()).size(12).color(DIAG_GRAY_50).font(theme::mono()))
-        .padding(iced::Padding {
-            top: 1.0,
-            right: 5.0,
-            bottom: 1.0,
-            left: 5.0,
-        })
-        .style(|_t| container::Style {
-            background: Some(iced::Background::Color(DIAG_GRAY_900)),
-            border: iced::border::rounded(4),
-            ..Default::default()
-        })
-        .into()
+    container(
+        text(seg.to_string())
+            .size(12)
+            .color(DIAG_GRAY_50)
+            .font(theme::mono()),
+    )
+    .padding(iced::Padding {
+        top: 1.0,
+        right: 5.0,
+        bottom: 1.0,
+        left: 5.0,
+    })
+    .style(|_t| container::Style {
+        background: Some(iced::Background::Color(DIAG_GRAY_900)),
+        border: iced::border::rounded(4),
+        ..Default::default()
+    })
+    .into()
 }
 
 /// The composed diff line wrapped for one cell — CSS
@@ -4755,7 +4942,7 @@ fn diff_cell(
             ..Default::default()
         })
         .into(),
-        container(horizontal_space())
+        container(space::horizontal())
             .width(Length::Fixed(3.0))
             .height(Fill)
             .style(move |_t| container::Style {
@@ -4815,7 +5002,7 @@ fn file_status_overlay(app: &App) -> Element<'_, Message> {
                     ("Keep old path", Message::FileKeepMine),
                 ],
             ),
-            FileLiveness::InSync => return iced::widget::horizontal_space().into(),
+            FileLiveness::InSync => return space::horizontal().into(),
         };
     let name = app
         .cur()
@@ -4866,7 +5053,7 @@ fn toast_overlay(app: &App) -> Element<'static, Message> {
     };
     let pill = container(
         row![
-            container(horizontal_space())
+            container(space::horizontal())
                 .width(Length::Fixed(7.0))
                 .height(Length::Fixed(7.0))
                 .style(move |_t| container::Style {
@@ -4924,7 +5111,11 @@ mod tab_drag_cover_tests {
             let [left, right] = drag_slivers(rect, dr);
             // the mark anchors to the remnant's left edge + 1px pad + the
             // 4.5px spoke radius (the clipped paint path's floor)
-            let remnant = if right.width >= left.width { right } else { left };
+            let remnant = if right.width >= left.width {
+                right
+            } else {
+                left
+            };
             if remnant.width >= 11.0 {
                 let cx = remnant.x + 5.5;
                 assert!(
@@ -4942,7 +5133,7 @@ mod tab_drag_cover_tests {
 
     /// Render the strip headlessly; return the rendered pixmap.
     fn render_strip(app: &App) -> tiny_skia::Pixmap {
-        use iced_tiny_skia::{Renderer, graphics::geometry::Renderer as _};
+        use iced_tiny_skia::{graphics::geometry::Renderer as _, Renderer};
         let w = 400usize;
         let h = (STRIP_H as usize).max(1);
         let bounds = Rectangle::new(Point::new(0.0, 0.0), Size::new(w as f32, h as f32));
@@ -4963,7 +5154,6 @@ mod tab_drag_cover_tests {
             &viewport,
             &[bounds],
             Color::from_rgb8(1, 2, 3),
-            &[] as &[&str],
         );
         pixmap
     }
@@ -5030,8 +5220,14 @@ mod tab_drag_cover_tests {
         // press the right tab at its center (window coords), then sweep
         // the pointer left through the whole overlap; every update ticks
         // the slide anims like the real loop does
-        let _ = update(&mut app, Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 80.0, 12.0));
-        let _ = update(&mut plain, Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 80.0, 12.0));
+        let _ = update(
+            &mut app,
+            Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 80.0, 12.0),
+        );
+        let _ = update(
+            &mut plain,
+            Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 80.0, 12.0),
+        );
         let _ = update(&mut app, Message::TabPressed(1));
         let _ = update(&mut plain, Message::TabPressed(1));
         // window x: the dragged tab's left edge = window_x - grab_dx where
@@ -5050,13 +5246,7 @@ mod tab_drag_cover_tests {
                 let states: Vec<String> = app
                     .tabs
                     .iter()
-                    .map(|t| {
-                        format!(
-                            "{}({})",
-                            t.title(),
-                            if t.is_modified() { "*" } else { "-" }
-                        )
-                    })
+                    .map(|t| format!("{}({})", t.title(), if t.is_modified() { "*" } else { "-" }))
                     .collect();
                 println!(
                     "PROBE wx={wx:.0} drag_left={drag_left:.0} ink={d} at_x={min_x} tabs={} active={}",
@@ -5078,8 +5268,14 @@ mod tab_drag_cover_tests {
         // also dump the mid-slide stage
         let mut app2 = build(true);
         let mut plain2 = build(false);
-        let _ = update(&mut app2, Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 80.0, 12.0));
-        let _ = update(&mut plain2, Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 80.0, 12.0));
+        let _ = update(
+            &mut app2,
+            Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 80.0, 12.0),
+        );
+        let _ = update(
+            &mut plain2,
+            Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 80.0, 12.0),
+        );
         let _ = update(&mut app2, Message::TabPressed(1));
         let _ = update(&mut plain2, Message::TabPressed(1));
         let _ = update(&mut app2, Message::MouseMovedWindow(82.0, 12.0));
@@ -5118,7 +5314,10 @@ mod tab_strip_chrome_tests {
         let d = close_disc(100.0, TAB_W, 16.0);
         // centered 19px from the body edge: a little more right padding
         assert_eq!(d.center_x(), 100.0 + TAB_W - 19.0);
-        assert!(d.x + d.width <= 100.0 + TAB_W - 6.0 + 0.01, "inside the body");
+        assert!(
+            d.x + d.width <= 100.0 + TAB_W - 6.0 + 0.01,
+            "inside the body"
+        );
         let sliver = close_disc(100.0, 30.0, 16.0);
         assert_eq!(sliver.center_x(), 111.0, "the disc rides the sliver's edge");
         assert!((d.height - 34.0).abs() < 0.01);
@@ -5149,9 +5348,13 @@ mod edge_handle_tests {
         // diagram side of the seam (the editor half falls through)
         let at = Point::new(410.0, 300.0);
         let (event, cursor) = press(at);
-        let (status, message) = h.update(&mut (), event, STRIP, cursor);
-        assert!(matches!(message, Some(Message::DividerPressed)));
-        assert_eq!(status, canvas::event::Status::Captured);
+        if let Some((message, _, status)) = h
+            .update(&mut (), &event, STRIP, cursor)
+            .map(canvas::Action::into_inner)
+        {
+            assert!(matches!(message, Some(Message::DividerPressed)));
+            assert_eq!(status, iced::event::Status::Captured);
+        }
     }
 
     #[test]
@@ -5162,9 +5365,14 @@ mod edge_handle_tests {
         let h = EdgeHandle;
         let at = Point::new(403.0, 300.0); // editor side of the seam
         let (event, cursor) = press(at);
-        let (status, message) = h.update(&mut (), event, STRIP, cursor);
-        assert!(message.is_none());
-        assert_eq!(status, canvas::event::Status::Ignored);
+        if let Some((message, _, status)) = h
+            .update(&mut (), &event, STRIP, cursor)
+            .map(canvas::Action::into_inner)
+        {
+            assert!(message.is_none());
+
+            assert_eq!(status, iced::event::Status::Ignored);
+        }
     }
 
     #[test]
@@ -5175,9 +5383,13 @@ mod edge_handle_tests {
         let h = EdgeHandle;
         let editor_area = Point::new(60.0, 50.0); // 2nd char of a line
         let (event, cursor) = press(editor_area);
-        let (status, message) = h.update(&mut (), event, STRIP, cursor);
-        assert!(message.is_none());
-        assert_eq!(status, canvas::event::Status::Ignored);
+        if let Some((message, _, status)) = h
+            .update(&mut (), &event, STRIP, cursor)
+            .map(canvas::Action::into_inner)
+        {
+            assert!(message.is_none());
+            assert_eq!(status, iced::event::Status::Ignored);
+        }
     }
 
     #[test]
@@ -5201,7 +5413,6 @@ mod edge_handle_tests {
             iced::mouse::Interaction::default()
         );
     }
-
 }
 
 #[cfg(test)]
@@ -5235,7 +5446,11 @@ Ref: posts.user_id > users.id
     }
 
     fn box_of<'a>(app: &'a App, title: &str) -> &'a dbml_ui::layout::TableBox {
-        app.diagram().boxes.iter().find(|b| b.title == title).unwrap()
+        app.diagram()
+            .boxes
+            .iter()
+            .find(|b| b.title == title)
+            .unwrap()
     }
 
     #[test]
@@ -5244,13 +5459,23 @@ Ref: posts.user_id > users.id
         let boxes = &app.diagram().boxes;
         let posts = box_of(&app, "posts");
         let rec = posts.records.as_ref().unwrap();
-        let uid_pos = rec.columns.iter().position(|&c| c == 1).expect("user_id position");
+        let uid_pos = rec
+            .columns
+            .iter()
+            .position(|&c| c == 1)
+            .expect("user_id position");
         // value 1 exists in users' records row 0
         let msg = follow_message(boxes, posts, rec, uid_pos, &RecordValue::Number("1".into()));
         let users = box_of(&app, "users").node;
         assert_eq!(msg, Message::RecordsFollow(users, 0));
         // no matching row: just open the table
-        let msg = follow_message(boxes, posts, rec, uid_pos, &RecordValue::Number("77".into()));
+        let msg = follow_message(
+            boxes,
+            posts,
+            rec,
+            uid_pos,
+            &RecordValue::Number("77".into()),
+        );
         assert_eq!(msg, Message::OpenRecords(users));
         // nulls never navigate
         let msg = follow_message(boxes, posts, rec, uid_pos, &RecordValue::Null);
@@ -5286,10 +5511,19 @@ Ref: posts.user_id > users.id
     fn value_labels_by_kind() {
         assert_eq!(record_value_label(&RecordValue::Null), "(null)");
         assert_eq!(record_value_label(&RecordValue::Text("x".into())), "x");
-        assert_eq!(record_value_label(&RecordValue::Number("2.50".into())), "2.50");
+        assert_eq!(
+            record_value_label(&RecordValue::Number("2.50".into())),
+            "2.50"
+        );
         assert_eq!(record_value_label(&RecordValue::Bool(true)), "true");
-        assert_eq!(record_value_label(&RecordValue::Ident("draft".into())), "draft");
-        assert_eq!(record_value_label(&RecordValue::Expr("now()".into())), "`now()`");
+        assert_eq!(
+            record_value_label(&RecordValue::Ident("draft".into())),
+            "draft"
+        );
+        assert_eq!(
+            record_value_label(&RecordValue::Expr("now()".into())),
+            "`now()`"
+        );
         // and the records fixture parses with records attached
         let out = parser::parse(SRC);
         assert!(out.errors.is_empty(), "{:?}", out.errors);
@@ -5323,18 +5557,39 @@ Ref: users.id > empty.x
             .to_string(),
         );
         let boxes = &app.diagram().boxes;
-        assert!(boxes.iter().all(|b| b.records.is_some()), "both carry records");
+        assert!(
+            boxes.iter().all(|b| b.records.is_some()),
+            "both carry records"
+        );
         let users = boxes.iter().find(|b| b.title == "users").unwrap().node;
         let empty = boxes.iter().find(|b| b.title == "empty").unwrap().node;
         // users has an FK column (id -> empty.x) that has records: the
         // cell renders as a clickable (the element builds either way)
-        let el = record_view_overlay(&app, &RecordView { node: users, follow: Some(1) });
+        let el = record_view_overlay(
+            &app,
+            &RecordView {
+                node: users,
+                follow: Some(1),
+            },
+        );
         let _ = el;
         // the empty block: "no rows" path
-        let el = record_view_overlay(&app, &RecordView { node: empty, follow: None });
+        let el = record_view_overlay(
+            &app,
+            &RecordView {
+                node: empty,
+                follow: None,
+            },
+        );
         let _ = el;
         // fallback for a stale node
-        let el = record_view_overlay(&app, &RecordView { node: 999, follow: None });
+        let el = record_view_overlay(
+            &app,
+            &RecordView {
+                node: 999,
+                follow: None,
+            },
+        );
         let _ = el;
     }
 }

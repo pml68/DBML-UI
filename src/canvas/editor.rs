@@ -6,10 +6,10 @@ use crate::app::{App, Focus, Maximized, Message};
 use crate::editor::buffer::Pos;
 use crate::editor::Mode;
 use crate::theme;
-use std::cell::Cell;
-use std::time::Instant;
 use iced::widget::canvas::{self, Text};
 use iced::{Color, Font, Point, Rectangle, Size};
+use std::cell::Cell;
+use std::time::Instant;
 
 /// iced's default monospace (Fira Mono) advances exactly 0.6 em.
 pub const CHAR_RATIO: f32 = 0.6;
@@ -56,10 +56,7 @@ fn caret_x(app: &App, scroll: f32, hs: f32) -> f32 {
     } else {
         app.editor().buf.selection_draw_range_exclusive()
     };
-    match (
-        app.editor().buf.selection_anchor(),
-        range,
-    ) {
+    match (app.editor().buf.selection_anchor(), range) {
         (Some(a), Some((_, end)))
             if cursor.row > a.row || (cursor.row == a.row && cursor.col > a.col) =>
         {
@@ -280,8 +277,8 @@ fn gutter_number(frame: &mut canvas::Frame, row: usize, text_y: f32) {
         color: theme::DIM,
         size: (FONT_SIZE - 2.0).into(),
         font: theme::mono(),
-        horizontal_alignment: iced::alignment::Horizontal::Right,
-        vertical_alignment: iced::alignment::Vertical::Center,
+        align_x: iced::advanced::text::Alignment::Right,
+        align_y: iced::alignment::Vertical::Center,
         ..Default::default()
     });
 }
@@ -326,14 +323,13 @@ impl ScrollbarGeom {
 
 /// Geometry of both overlay scrollbars for the current buffer + scroll.
 /// `None` on an axis with no overflow (never drawn, never hit-tested).
-pub fn scrollbar_layout(app: &App, bounds: Rectangle) -> (Option<ScrollbarGeom>, Option<ScrollbarGeom>) {
+pub fn scrollbar_layout(
+    app: &App,
+    bounds: Rectangle,
+) -> (Option<ScrollbarGeom>, Option<ScrollbarGeom>) {
     let lines = app.editor().buf.lines();
     let total_rows = lines.len() as f32;
-    let max_cols = lines
-        .iter()
-        .map(|l| l.chars().count())
-        .max()
-        .unwrap_or(0) as f32;
+    let max_cols = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0) as f32;
     let h_max = (max_cols * char_width() - (bounds.width - GUTTER - H_RIGHT_MARGIN)).max(0.0);
     // mirror the app's page_lines: the horizontal scrollbar's reserved
     // line at the bottom shrinks the vertical page — the drag math and
@@ -401,10 +397,10 @@ impl canvas::Program<Message> for EditorView<'_> {
     fn update(
         &self,
         state: &mut Self::State,
-        event: canvas::Event,
+        event: &canvas::Event,
         bounds: Rectangle,
         cursor: iced::mouse::Cursor,
-    ) -> (canvas::event::Status, Option<Message>) {
+    ) -> Option<canvas::Action<Message>> {
         let _ = state; // the scrollbar drag lives at the app level
         use iced::mouse;
         // The scrollbar drag itself lives at the APP level (see
@@ -421,13 +417,10 @@ impl canvas::Program<Message> for EditorView<'_> {
             let over = cursor
                 .position_over(bounds)
                 .map(|p| Point::new(p.x - bounds.x, p.y - bounds.y));
-            return (
-                canvas::event::Status::Ignored,
-                Some(Message::EditorHover(over)),
-            );
+            return Some(canvas::Action::publish(Message::EditorHover(over)));
         }
         let Some(p) = cursor.position_over(bounds) else {
-            return (canvas::event::Status::Ignored, None);
+            return None;
         };
         let local = Point::new(p.x - bounds.x, p.y - bounds.y);
         match event {
@@ -440,24 +433,19 @@ impl canvas::Program<Message> for EditorView<'_> {
                 // wheel's notch deltas convert here (one notch = one
                 // character cell horizontally, one line vertically)
                 let (v, h) = match delta {
-                    mouse::ScrollDelta::Lines { x, y } => {
-                        (-y * LINE_HEIGHT, -x * char_width())
-                    }
+                    mouse::ScrollDelta::Lines { x, y } => (-y * LINE_HEIGHT, -x * char_width()),
                     mouse::ScrollDelta::Pixels { x, y } => (-y, -x),
                 };
-                (
-                    canvas::event::Status::Captured,
-                    Some(Message::EditorScrolled { v, h }),
-                )
+                Some(canvas::Action::publish(Message::EditorScrolled { v, h }).and_capture())
             }
             canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 // a press on the popup picks that row
                 if let Some((rect, first_row, _)) = popup_layout(self.app, bounds) {
                     if rect.contains(local) {
                         let row = ((local.y - rect.y) / ROW_H) as usize;
-                        return (
-                            canvas::event::Status::Captured,
-                            Some(Message::CompletionPicked(first_row + row)),
+                        return Some(
+                            canvas::Action::publish(Message::CompletionPicked(first_row + row))
+                                .and_capture(),
                         );
                     }
                 }
@@ -481,16 +469,16 @@ impl canvas::Program<Message> for EditorView<'_> {
                         let frac = ((local.y - bar.thumb_len / 2.0) / span).clamp(0.0, 1.0);
                         (bar.thumb_len / 2.0, Some(frac * bar.max))
                     };
-                    return (
-                        canvas::event::Status::Captured,
-                        Some(Message::ScrollbarDragStart {
+                    return Some(
+                        canvas::Action::publish(Message::ScrollbarDragStart {
                             vertical: true,
                             grab,
                             band_origin: bounds.y + bar.band.y,
                             span: bar.track - bar.thumb_len,
                             max: bar.max,
                             jump_to,
-                        }),
+                        })
+                        .and_capture(),
                     );
                 }
                 if let Some(bar) = hbar.filter(|b| b.band_contains(local)) {
@@ -501,35 +489,31 @@ impl canvas::Program<Message> for EditorView<'_> {
                         let frac = ((local.x - bar.thumb_len / 2.0) / span).clamp(0.0, 1.0);
                         (bar.thumb_len / 2.0, Some(frac * bar.max))
                     };
-                    return (
-                        canvas::event::Status::Captured,
-                        Some(Message::ScrollbarDragStart {
+                    return Some(
+                        canvas::Action::publish(Message::ScrollbarDragStart {
                             vertical: false,
                             grab,
                             band_origin: bounds.x + bar.band.x,
                             span: bar.track - bar.thumb_len,
                             max: bar.max,
                             jump_to,
-                        }),
+                        })
+                        .and_capture(),
                     );
                 }
-                (
-                    canvas::event::Status::Captured,
-                    Some(Message::EditorPressed(local)),
-                )
+                Some(canvas::Action::publish(Message::EditorPressed(local)).and_capture())
             }
             canvas::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
                 // a scrollbar drag started here ends at the app level
                 // (Message::MouseReleased clears it)
-                (canvas::event::Status::Ignored, None)
+                None
             }
             // right-press opens the editor context menu (Copy / Cut /
             // Paste / Format); the app anchors it via the window cursor
-            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => (
-                canvas::event::Status::Captured,
-                Some(Message::EditorMenu(local)),
-            ),
-            _ => (canvas::event::Status::Ignored, None),
+            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
+                Some(canvas::Action::publish(Message::EditorMenu(local)).and_capture())
+            }
+            _ => None,
         }
     }
 
@@ -634,17 +618,22 @@ impl canvas::Program<Message> for EditorView<'_> {
                 );
             }
             if el < dur {
-                let alpha = if debug {
-                    0.6
-                } else {
-                    0.28 * (1.0 - el / dur)
+                let alpha = if debug { 0.6 } else { 0.28 * (1.0 - el / dur) };
+                let color = Color {
+                    a: alpha,
+                    ..theme::PK
                 };
-                let color = Color { a: alpha, ..theme::PK };
                 // linewise yanks span whole rows: encode the range as
                 // (first row, col 0) .. (end row, col 0) — the band helper
                 // covers full rows for that shape
-                let start = crate::editor::buffer::Pos { row: f.start.0, col: f.start.1 };
-                let end = crate::editor::buffer::Pos { row: f.end.0, col: f.end.1 };
+                let start = crate::editor::buffer::Pos {
+                    row: f.start.0,
+                    col: f.start.1,
+                };
+                let end = crate::editor::buffer::Pos {
+                    row: f.end.0,
+                    col: f.end.1,
+                };
                 for band in selection_band_rects(start, end, scroll, hs, bounds.width) {
                     frame.fill_rectangle(band.position(), band.size(), color);
                 }
@@ -713,8 +702,8 @@ impl canvas::Program<Message> for EditorView<'_> {
                                 color: token_color(t.kind),
                                 size: FONT_SIZE.into(),
                                 font: theme::mono(),
-                                horizontal_alignment: iced::alignment::Horizontal::Left,
-                                vertical_alignment: iced::alignment::Vertical::Center,
+                                align_x: iced::advanced::text::Alignment::Left,
+                                align_y: iced::alignment::Vertical::Center,
                                 ..Default::default()
                             });
                         }
@@ -765,8 +754,8 @@ impl canvas::Program<Message> for EditorView<'_> {
                                 color: theme::PANEL,
                                 size: FONT_SIZE.into(),
                                 font: theme::mono(),
-                                horizontal_alignment: iced::alignment::Horizontal::Left,
-                                vertical_alignment: iced::alignment::Vertical::Center,
+                                align_x: iced::advanced::text::Alignment::Left,
+                                align_y: iced::alignment::Vertical::Center,
                                 ..Default::default()
                             });
                         }
@@ -831,7 +820,11 @@ impl canvas::Program<Message> for EditorView<'_> {
         // GLYPHS are text — a later fill cannot cover them — so the row
         // loop already drops the cells left of the gutter edge.
         if hs > 0.0 {
-            frame.fill_rectangle(Point::ORIGIN, Size::new(GUTTER, bounds.height), theme::PANEL);
+            frame.fill_rectangle(
+                Point::ORIGIN,
+                Size::new(GUTTER, bounds.height),
+                theme::PANEL,
+            );
             let mut gy = -(sub * LINE_HEIGHT).round();
             for (i, _) in lines.iter().enumerate().skip(first).take(visible.max(1)) {
                 let text_y = gy + LINE_HEIGHT * 0.5;
@@ -871,8 +864,7 @@ impl canvas::Program<Message> for EditorView<'_> {
             if alpha > 0.0 {
                 let hover_local = pointer;
                 let thumb_color = |bar: &ScrollbarGeom, dragged: bool| {
-                    let active = dragged
-                        || hover_local.is_some_and(|p| bar.thumb_contains(p));
+                    let active = dragged || hover_local.is_some_and(|p| bar.thumb_contains(p));
                     Color {
                         a: if active {
                             theme::SCROLLBAR_ACTIVE_ALPHA
@@ -915,13 +907,13 @@ impl canvas::Program<Message> for EditorView<'_> {
         cursor: iced::mouse::Cursor,
     ) -> iced::mouse::Interaction {
         let _ = state; // drag state lives at the app level
-        // canvas mouse_interaction is not bounds-gated by iced, so check
-        // hover here: I-beam while typing or in Regular mode (where the
-        // mouse selects text), plain arrow otherwise (normal/visual
-        // motions are keyboard-driven). The overlay scrollbars always
-        // take the default arrow — the I-beam must never hover them,
-        // whatever the editor mode — and an active scrollbar drag keeps
-        // the arrow even when the pointer drifts off the band mid-drag.
+                       // canvas mouse_interaction is not bounds-gated by iced, so check
+                       // hover here: I-beam while typing or in Regular mode (where the
+                       // mouse selects text), plain arrow otherwise (normal/visual
+                       // motions are keyboard-driven). The overlay scrollbars always
+                       // take the default arrow — the I-beam must never hover them,
+                       // whatever the editor mode — and an active scrollbar drag keeps
+                       // the arrow even when the pointer drifts off the band mid-drag.
         if cursor.position_over(bounds).is_some() {
             if self.app.scrollbar_drag.is_some() {
                 return iced::mouse::Interaction::default();
@@ -1280,8 +1272,8 @@ fn draw_doc_title(frame: &mut canvas::Frame, title: &str, at: Point) {
             color: c,
             size,
             font,
-            horizontal_alignment: iced::alignment::Horizontal::Left,
-            vertical_alignment: iced::alignment::Vertical::Top,
+            align_x: iced::advanced::text::Alignment::Left,
+            align_y: iced::alignment::Vertical::Top,
             ..Default::default()
         });
         *x += s.chars().count() as f32 * cw;
@@ -1361,9 +1353,9 @@ fn doc_rect(hover: Point, doc: &DocHover, bounds: Rectangle, bottom_reserve: f32
         .rows
         .iter()
         .map(|r| 16.0 + doc_row_content_w(r, text_w))
-        .chain(
-            std::iter::once(doc.title.chars().count() as f32 * text_w + 16.0),
-        )
+        .chain(std::iter::once(
+            doc.title.chars().count() as f32 * text_w + 16.0,
+        ))
         .fold(140.0f32, f32::max)
         + 24.0;
     // title zone + its divider + the rows + the bottom pad
@@ -1452,7 +1444,11 @@ fn popup_layout(app: &App, bounds: Rectangle) -> Option<(Rectangle, usize, usize
         * char_width();
     let width = label_w + kind_w + 26.0;
     let height = visible as f32 * ROW_H + 6.0;
-    let caret = pos_to_px(app.editor().buf.pos(), app.cur().editor_scroll, app.cur().editor_hscroll);
+    let caret = pos_to_px(
+        app.editor().buf.pos(),
+        app.cur().editor_scroll,
+        app.cur().editor_hscroll,
+    );
     let mut x = caret.x + char_width() + 2.0;
     let mut y = caret.y + LINE_HEIGHT + 2.0;
     if y + height > bounds.y + bounds.height - 2.0 {
@@ -1517,7 +1513,8 @@ mod doc_tests {
             ),
         );
         assert_eq!(app.editor().mode, crate::editor::Mode::Insert);
-        let bounds = iced::Rectangle::new(iced::Point::new(0.0, 0.0), iced::Size::new(800.0, 600.0));
+        let bounds =
+            iced::Rectangle::new(iced::Point::new(0.0, 0.0), iced::Size::new(800.0, 600.0));
         let state = BlinkState::default();
         use iced::mouse::{Cursor, Interaction};
         use iced::widget::canvas::Program;
@@ -1579,14 +1576,23 @@ mod doc_tests {
             ),
         );
         assert!(
-            app.editor().buf.selection_range().is_some_and(|(a, b)| a != b),
+            app.editor()
+                .buf
+                .selection_range()
+                .is_some_and(|(a, b)| a != b),
             "the whole buffer selected"
         );
-        assert!(!caret_blinking(&app), "the caret hides during the selection");
+        assert!(
+            !caret_blinking(&app),
+            "the caret hides during the selection"
+        );
         // any cursor move collapses it and the caret returns
         let _ = update(
             &mut app,
-            crate::app::Message::KeyPressed(crate::editor::KeyCode::Left, crate::editor::KeyModifiers::NONE),
+            crate::app::Message::KeyPressed(
+                crate::editor::KeyCode::Left,
+                crate::editor::KeyModifiers::NONE,
+            ),
         );
         assert!(app.editor().buf.selection_range().is_none());
         assert!(caret_blinking(&app));
@@ -1598,19 +1604,31 @@ mod doc_tests {
         let mut app = app();
         let _ = update(
             &mut app,
-            crate::app::Message::KeyPressed(crate::editor::KeyCode::Esc, crate::editor::KeyModifiers::NONE),
+            crate::app::Message::KeyPressed(
+                crate::editor::KeyCode::Esc,
+                crate::editor::KeyModifiers::NONE,
+            ),
         ); // back to normal
         let _ = update(
             &mut app,
-            crate::app::Message::KeyPressed(crate::editor::KeyCode::Char('v'), crate::editor::KeyModifiers::NONE),
+            crate::app::Message::KeyPressed(
+                crate::editor::KeyCode::Char('v'),
+                crate::editor::KeyModifiers::NONE,
+            ),
         );
         let _ = update(
             &mut app,
-            crate::app::Message::KeyPressed(crate::editor::KeyCode::Right, crate::editor::KeyModifiers::NONE),
+            crate::app::Message::KeyPressed(
+                crate::editor::KeyCode::Right,
+                crate::editor::KeyModifiers::NONE,
+            ),
         );
         assert_eq!(app.editor().mode, crate::editor::Mode::Visual);
         assert!(
-            app.editor().buf.selection_range().is_some_and(|(a, b)| a != b),
+            app.editor()
+                .buf
+                .selection_range()
+                .is_some_and(|(a, b)| a != b),
             "a visual selection is live"
         );
         assert!(caret_blinking(&app), "visual keeps the block cursor");
@@ -1734,10 +1752,7 @@ mod doc_tests {
         let doc = doc_hover_at(&app, p + Vector::new(3.0, 10.0)).expect("doc");
         assert_eq!(doc.title, "Table posts");
         assert!(doc.rows.iter().any(|r| r.text.contains("user_id")));
-        assert!(
-            doc.rows.iter().any(|r| r.pk && r.has_icon()),
-            "pk marker"
-        );
+        assert!(doc.rows.iter().any(|r| r.pk && r.has_icon()), "pk marker");
     }
 
     #[test]
@@ -2013,7 +2028,10 @@ mod error_tests {
         let marks = error_marks(&app);
         assert_eq!(marks.len(), 1, "{marks:?}");
         assert!(!marks[0].warn);
-        assert_eq!(marks[0].message, "Table 'b' does not exist in Schema 'public'");
+        assert_eq!(
+            marks[0].message,
+            "Table 'b' does not exist in Schema 'public'"
+        );
 
         // strict-grammar recovery (comma index settings): their
         // validateNode class — a red mark, not soft-blue
@@ -2065,7 +2083,10 @@ mod error_tests {
         assert_eq!(structure[0].end, app.editor().buf.line(4).chars().count());
         // last row: line start to the end column ('moderator' end)
         assert_eq!(structure[1].start, 0);
-        assert_eq!(structure[1].end, "    1, 'Bob', 'moderator'".chars().count());
+        assert_eq!(
+            structure[1].end,
+            "    1, 'Bob', 'moderator'".chars().count()
+        );
         // hover on the second row resolves the same diagnostic
         let p = pos_to_px(
             crate::editor::buffer::Pos {
@@ -2098,10 +2119,7 @@ mod error_tests {
             app.cur().editor_hscroll,
         );
         let hit = mark_hover_at(&app, &marks, p);
-        assert!(
-            hit.is_some(),
-            "hover at {p:?} hits none of {marks:?}"
-        );
+        assert!(hit.is_some(), "hover at {p:?} hits none of {marks:?}");
         assert!(!hit.unwrap().message.is_empty());
     }
 
@@ -2112,8 +2130,7 @@ mod error_tests {
         // damaged-header element's column errors span every row (the
         // campaign's node-span anchoring), leaving no hoverable
         // non-error row.
-        let mut app =
-            App::with_source("Table users {\n  id integer [pk]\n}\ngibberish\n".into());
+        let mut app = App::with_source("Table users {\n  id integer [pk]\n}\ngibberish\n".into());
         assert!(!app.cur().parse_errors.is_empty(), "fixture is broken");
         fill_their_diags(&mut app);
         let marks = error_marks(&app);
@@ -2141,13 +2158,15 @@ mod error_tests {
         // beyond the EOF there). The gibberish line itself stays marked
         // by the spanned "A Custom element can only appear in a Project
         // or a Dep" (their rows 4-5)
-        let mut app =
-            App::with_source("Table users {\n  id integer [pk]\n}\ngibberish\n".into());
+        let mut app = App::with_source("Table users {\n  id integer [pk]\n}\ngibberish\n".into());
         assert!(!app.cur().parse_errors.is_empty(), "fixture is broken");
         fill_their_diags(&mut app);
         let marks = error_marks(&app);
         let last_content = app.editor().buf.last_content_row();
-        assert_eq!(marks[0].row, last_content, "the EOF mark folds onto the last line");
+        assert_eq!(
+            marks[0].row, last_content,
+            "the EOF mark folds onto the last line"
+        );
         // hovering the folded mark ON the last line resolves
         let on_mark = pos_to_px(
             crate::editor::buffer::Pos {
@@ -2205,7 +2224,10 @@ mod error_tests {
         // alternative (above) position
         let hover = Point::new(100.0, 228.0);
         let bare = place_rect(hover, w, h, bounds, 0.0);
-        assert!(bare.y + h <= bounds.height - 4.0, "fits under the bare edge");
+        assert!(
+            bare.y + h <= bounds.height - 4.0,
+            "fits under the bare edge"
+        );
         assert!(
             bare.y + h > bounds.height - 4.0 - SCROLLBAR_W,
             "the bare placement covers the band: {bare:?}"
@@ -2243,7 +2265,10 @@ mod error_tests {
         assert_eq!(r.x + r.width, 470.0 - 14.0);
         // near both edges: both axes flip
         let r = doc_rect(Point::new(470.0, 660.0), &doc, bounds, 0.0);
-        assert!(r.x + r.width <= 500.0 - 4.0 && r.y + r.height <= 700.0 - 4.0, "{r:?}");
+        assert!(
+            r.x + r.width <= 500.0 - 4.0 && r.y + r.height <= 700.0 - 4.0,
+            "{r:?}"
+        );
         // a card taller than the pane fits nowhere: pinned at the top
         let big = DocHover {
             title: "Table users".into(),
@@ -2274,7 +2299,9 @@ mod popup_tests {
                 crate::editor::KeyModifiers::NONE,
             ),
         );
-        app.editor_mut().buf.move_cursor(crate::editor::buffer::Move::Jump(row, col));
+        app.editor_mut()
+            .buf
+            .move_cursor(crate::editor::buffer::Move::Jump(row, col));
         let _ = update(
             &mut app,
             crate::app::Message::KeyPressed(
@@ -2297,7 +2324,9 @@ mod popup_tests {
                 crate::editor::KeyModifiers::NONE,
             ),
         );
-        app.editor_mut().buf.move_cursor(crate::editor::buffer::Move::Bottom);
+        app.editor_mut()
+            .buf
+            .move_cursor(crate::editor::buffer::Move::Bottom);
         app.cur_mut().editor_scroll = app.editor().buf.line_count() as f32 - 20.0;
         let _ = update(
             &mut app,
@@ -2308,7 +2337,11 @@ mod popup_tests {
         );
         assert!(app.completion.is_some(), "popup open");
         let (rect, _, _) = popup_layout(&app, PANE).unwrap();
-        let caret = pos_to_px(app.editor().buf.pos(), app.cur().editor_scroll, app.cur().editor_hscroll);
+        let caret = pos_to_px(
+            app.editor().buf.pos(),
+            app.cur().editor_scroll,
+            app.cur().editor_hscroll,
+        );
         assert!(
             rect.y + rect.height <= caret.y,
             "popup should sit above the caret: rect={rect:?} caret_y={}",
@@ -2404,14 +2437,13 @@ mod tests {
         let app = App::default();
         let view = EditorView { app: &app };
         let outside = Point::new(900.0, 100.0); // diagram-pane territory
-        let (status, message) = view.update(
+        let action = view.update(
             &mut BlinkState::default(),
-            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+            &canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
             BOUNDS,
             Cursor::Available(outside),
         );
-        assert!(message.is_none(), "{message:?}");
-        assert_eq!(status, canvas::event::Status::Ignored);
+        assert!(action.is_none(), "{action:?}");
     }
 
     #[test]
@@ -2421,20 +2453,32 @@ mod tests {
         // the scroll separately then lost a line whenever the fractions
         // summed past 1 — the cursor landed one row ABOVE the click
         let mut app = App::with_source(
-            (0..40).map(|i| format!("line {i}")).collect::<Vec<_>>().join("\n"),
+            (0..40)
+                .map(|i| format!("line {i}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
         );
         app.cur_mut().editor_scroll = 5.4; // fractional, like max_scroll
-        // with scroll=5.4 the on-screen cells sit at [row-5.4, row-4.4):
-        // row 9's cell spans [3.6, 4.6)*LINE_HEIGHT. Its TOP part (screen
-        // line 3, fraction >= 0.6) is the zone that used to lose a line —
-        // a click on row 9's text landed on row 8.
-        let pos = px_to_pos(&app, Point::new(GUTTER + 2.0 * char_width(), 3.7 * LINE_HEIGHT));
+                                           // with scroll=5.4 the on-screen cells sit at [row-5.4, row-4.4):
+                                           // row 9's cell spans [3.6, 4.6)*LINE_HEIGHT. Its TOP part (screen
+                                           // line 3, fraction >= 0.6) is the zone that used to lose a line —
+                                           // a click on row 9's text landed on row 8.
+        let pos = px_to_pos(
+            &app,
+            Point::new(GUTTER + 2.0 * char_width(), 3.7 * LINE_HEIGHT),
+        );
         assert_eq!(pos.row, 9, "top of row 9's cell");
         // a mid-cell click was already fine
-        let pos = px_to_pos(&app, Point::new(GUTTER + 2.0 * char_width(), 4.4 * LINE_HEIGHT));
+        let pos = px_to_pos(
+            &app,
+            Point::new(GUTTER + 2.0 * char_width(), 4.4 * LINE_HEIGHT),
+        );
         assert_eq!(pos.row, 9, "middle of row 9's cell");
         // and row 10's cell ([4.6, 5.6)) near its top — same lost line
-        let pos = px_to_pos(&app, Point::new(GUTTER + 2.0 * char_width(), 4.65 * LINE_HEIGHT));
+        let pos = px_to_pos(
+            &app,
+            Point::new(GUTTER + 2.0 * char_width(), 4.65 * LINE_HEIGHT),
+        );
         assert_eq!(pos.row, 10, "top of row 10's cell");
     }
 
@@ -2442,12 +2486,17 @@ mod tests {
     fn press_inside_places_cursor_at_local_position() {
         let app = App::default();
         let view = EditorView { app: &app };
-        let (_, message) = view.update(
-            &mut BlinkState::default(),
-            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
-            BOUNDS,
-            Cursor::Available(Point::new(100.0 + GUTTER + 30.0, 50.0 + 40.0)),
-        );
+        let Some((message, _, _)) = view
+            .update(
+                &mut BlinkState::default(),
+                &canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+                BOUNDS,
+                Cursor::Available(Point::new(100.0 + GUTTER + 30.0, 50.0 + 40.0)),
+            )
+            .map(canvas::Action::into_inner)
+        else {
+            panic!("expected an Action, got None");
+        };
         match message {
             Some(Message::EditorPressed(p)) => {
                 assert!((p.x - (GUTTER + 30.0)).abs() < 0.01);
@@ -2468,7 +2517,11 @@ mod tests {
         assert_eq!(last_char, Pos { row: 0, col: 4 });
         for x in [5.01, 5.5, 100.0, 1000.0] {
             let pos = px_to_pos(&app, Point::new(GUTTER + x * char_width(), y));
-            assert_eq!(pos, Pos { row: 0, col: 5 }, "click {x} cells past the gutter");
+            assert_eq!(
+                pos,
+                Pos { row: 0, col: 5 },
+                "click {x} cells past the gutter"
+            );
         }
     }
 
@@ -2518,7 +2571,10 @@ mod tests {
             (rects[1].y - LINE_HEIGHT).abs() < 1e-4 && (rects[1].height - LINE_HEIGHT).abs() < 1e-4,
             "exactly one full mid row"
         );
-        assert!((rects[2].width - 4.0 * w).abs() < 1e-4, "end row: cols 0..4");
+        assert!(
+            (rects[2].width - 4.0 * w).abs() < 1e-4,
+            "end row: cols 0..4"
+        );
 
         // an empty end line (draw end col 0): nothing bands on it
         let rects = selection_band_rects(
@@ -2547,13 +2603,18 @@ mod tests {
     fn right_press_inside_opens_the_context_menu() {
         let app = App::default();
         let view = EditorView { app: &app };
-        let (status, message) = view.update(
-            &mut BlinkState::default(),
-            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)),
-            BOUNDS,
-            Cursor::Available(Point::new(100.0 + GUTTER + 30.0, 50.0 + 40.0)),
-        );
-        assert_eq!(status, canvas::event::Status::Captured);
+        let Some((message, _, status)) = view
+            .update(
+                &mut BlinkState::default(),
+                &canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)),
+                BOUNDS,
+                Cursor::Available(Point::new(100.0 + GUTTER + 30.0, 50.0 + 40.0)),
+            )
+            .map(canvas::Action::into_inner)
+        else {
+            panic!("expected an Action, got None")
+        };
+        assert_eq!(status, iced::event::Status::Captured);
         match message {
             Some(Message::EditorMenu(p)) => {
                 // canvas-LOCAL coords; the app anchors the overlay
@@ -2568,14 +2629,13 @@ mod tests {
     fn right_press_outside_the_pane_is_ignored() {
         let app = App::default();
         let view = EditorView { app: &app };
-        let (status, message) = view.update(
+        let action = view.update(
             &mut BlinkState::default(),
-            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)),
+            &canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)),
             BOUNDS,
             Cursor::Available(Point::new(900.0, 100.0)),
         );
-        assert_eq!(status, canvas::event::Status::Ignored);
-        assert!(message.is_none());
+        assert!(action.is_none());
     }
 
     #[test]
@@ -2583,15 +2643,15 @@ mod tests {
         // regression: zooming the diagram scrolled the editor pane
         let app = App::default();
         let view = EditorView { app: &app };
-        let (_, message) = view.update(
+        let action = view.update(
             &mut BlinkState::default(),
-            canvas::Event::Mouse(mouse::Event::WheelScrolled {
+            &canvas::Event::Mouse(mouse::Event::WheelScrolled {
                 delta: mouse::ScrollDelta::Lines { x: 0.0, y: -3.0 },
             }),
             BOUNDS,
             Cursor::Available(Point::new(900.0, 100.0)),
         );
-        assert!(message.is_none(), "{message:?}");
+        assert!(action.is_none(), "{action:?}");
     }
 
     #[test]
@@ -2604,15 +2664,21 @@ mod tests {
         let view = EditorView { app: &app };
         let inside = Cursor::Available(Point::new(150.0, 100.0));
         for (y, expected_down) in [(1.0, false), (-1.0, true)] {
-            let (status, message) = view.update(
-                &mut BlinkState::default(),
-                canvas::Event::Mouse(mouse::Event::WheelScrolled {
-                    delta: mouse::ScrollDelta::Lines { x: 0.0, y },
-                }),
-                BOUNDS,
-                inside,
-            );
-            assert_eq!(status, canvas::event::Status::Captured);
+            let Some((message, _, status)) = view
+                .update(
+                    &mut BlinkState::default(),
+                    &canvas::Event::Mouse(mouse::Event::WheelScrolled {
+                        delta: mouse::ScrollDelta::Lines { x: 0.0, y },
+                    }),
+                    BOUNDS,
+                    inside,
+                )
+                .map(canvas::Action::into_inner)
+            else {
+                panic!("expected an Action, got None");
+            };
+
+            assert_eq!(status, iced::event::Status::Captured);
             match message {
                 Some(Message::EditorScrolled { v, h }) => {
                     assert_eq!(h, 0.0, "y-only wheel carries no x payload");
@@ -2637,16 +2703,24 @@ mod tests {
         let inside = Cursor::Available(Point::new(150.0, 100.0));
         for (delta, expected_h) in [
             // Lines are notches: 2 notches x 0.6em char_width in px
-            (mouse::ScrollDelta::Lines { x: 2.0, y: 0.0 }, -2.0 * char_width()),
+            (
+                mouse::ScrollDelta::Lines { x: 2.0, y: 0.0 },
+                -2.0 * char_width(),
+            ),
             // Pixels deltas pass through 1:1
             (mouse::ScrollDelta::Pixels { x: 80.0, y: 0.0 }, -80.0),
         ] {
-            let (_, message) = view.update(
-                &mut BlinkState::default(),
-                canvas::Event::Mouse(mouse::Event::WheelScrolled { delta }),
-                BOUNDS,
-                inside,
-            );
+            let Some((message, _, _)) = view
+                .update(
+                    &mut BlinkState::default(),
+                    &canvas::Event::Mouse(mouse::Event::WheelScrolled { delta }),
+                    BOUNDS,
+                    inside,
+                )
+                .map(canvas::Action::into_inner)
+            else {
+                panic!("expected an Action, got None");
+            };
             match message {
                 Some(Message::EditorScrolled { v, h }) => {
                     assert_eq!(v, 0.0, "x-only wheel carries no y payload");
@@ -2890,8 +2964,7 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
         if let Some(hover) = app.editor_hover {
             if app.completion.is_none() {
                 if let Some(m) = mark_hover_at(app, &marks, hover) {
-                    let (rect, lines) =
-                        tooltip_layout(hover, &m.message, bounds, bottom_reserve);
+                    let (rect, lines) = tooltip_layout(hover, &m.message, bounds, bottom_reserve);
                     frame.fill(
                         &canvas::Path::rounded_rectangle(
                             rect.position(),
@@ -2925,8 +2998,8 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
                             color: theme::TEXT,
                             size: (FONT_SIZE - 1.0).into(),
                             font: theme::mono(),
-                            horizontal_alignment: iced::alignment::Horizontal::Left,
-                            vertical_alignment: iced::alignment::Vertical::Center,
+                            align_x: iced::advanced::text::Alignment::Left,
+                            align_y: iced::alignment::Vertical::Center,
                             ..Default::default()
                         });
                     }
@@ -3021,8 +3094,8 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
                             color: row_ink,
                             size: (FONT_SIZE - 1.0).into(),
                             font: theme::mono(),
-                            horizontal_alignment: iced::alignment::Horizontal::Left,
-                            vertical_alignment: iced::alignment::Vertical::Top,
+                            align_x: iced::advanced::text::Alignment::Left,
+                            align_y: iced::alignment::Vertical::Top,
                             ..Default::default()
                         });
                         let mut px = col_x + (name.chars().count() as f32 + 2.0) * cw;
@@ -3041,8 +3114,8 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
                                 color: ty_color,
                                 size: (FONT_SIZE - 1.0).into(),
                                 font: theme::mono(),
-                                horizontal_alignment: iced::alignment::Horizontal::Left,
-                                vertical_alignment: iced::alignment::Vertical::Top,
+                                align_x: iced::advanced::text::Alignment::Left,
+                                align_y: iced::alignment::Vertical::Top,
                                 ..Default::default()
                             });
                             px += (ty.chars().count() as f32 + 2.0) * cw;
@@ -3079,8 +3152,8 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
                                 position: Point::new(px + pw / 2.0, ry + 7.5),
                                 color: theme::FIELD_SETTING_TEXT,
                                 size: 9.0.into(),
-                                horizontal_alignment: iced::alignment::Horizontal::Center,
-                                vertical_alignment: iced::alignment::Vertical::Center,
+                                align_x: iced::advanced::text::Alignment::Center,
+                                align_y: iced::alignment::Vertical::Center,
                                 ..Default::default()
                             });
                             px += pw + 4.0;
@@ -3094,8 +3167,8 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
                                 color: theme::SYN_KEYWORD,
                                 size: (FONT_SIZE - 2.0).into(),
                                 font: theme::mono(),
-                                horizontal_alignment: iced::alignment::Horizontal::Left,
-                                vertical_alignment: iced::alignment::Vertical::Top,
+                                align_x: iced::advanced::text::Alignment::Left,
+                                align_y: iced::alignment::Vertical::Top,
                                 ..Default::default()
                             });
                             frame.fill_text(Text {
@@ -3107,8 +3180,8 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
                                 color: theme::SYN_STRING,
                                 size: (FONT_SIZE - 2.0).into(),
                                 font: theme::mono(),
-                                horizontal_alignment: iced::alignment::Horizontal::Left,
-                                vertical_alignment: iced::alignment::Vertical::Top,
+                                align_x: iced::advanced::text::Alignment::Left,
+                                align_y: iced::alignment::Vertical::Top,
                                 ..Default::default()
                             });
                         }
@@ -3161,8 +3234,8 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
                     color: theme::TEXT,
                     size: (FONT_SIZE - 1.0).into(),
                     font: theme::mono(),
-                    horizontal_alignment: iced::alignment::Horizontal::Left,
-                    vertical_alignment: iced::alignment::Vertical::Center,
+                    align_x: iced::advanced::text::Alignment::Left,
+                    align_y: iced::alignment::Vertical::Center,
                     ..Default::default()
                 });
                 frame.fill_text(Text {
@@ -3171,8 +3244,8 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
                     color: item_kind_color(item.kind),
                     size: (FONT_SIZE - 1.0).into(),
                     font: theme::mono(),
-                    horizontal_alignment: iced::alignment::Horizontal::Right,
-                    vertical_alignment: iced::alignment::Vertical::Center,
+                    align_x: iced::advanced::text::Alignment::Right,
+                    align_y: iced::alignment::Vertical::Center,
                     ..Default::default()
                 });
             }
@@ -3186,9 +3259,13 @@ impl canvas::Program<Message> for EditorOverlay<'_> {
                 frame.fill_rectangle(
                     Point::new(prect.x + prect.width - 3.0, y),
                     Size::new(2.0, thumb_h),
-                    Color { a: 0.5, ..theme::DIM },
+                    Color {
+                        a: 0.5,
+                        ..theme::DIM
+                    },
                 );
             }
         }
         vec![frame.into_geometry()]
-}}
+    }
+}

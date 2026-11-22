@@ -156,8 +156,8 @@ pub fn ctrl_held() -> Option<bool> {
             if let Ok(reply) = state.reply() {
                 use x11rb::protocol::xproto::ModMask;
                 let ctl = u32::from(ModMask::CONTROL);
-                let held = u32::from(reply.base_mods) & ctl != 0
-                    || u32::from(reply.mods) & ctl != 0;
+                let held =
+                    u32::from(reply.base_mods) & ctl != 0 || u32::from(reply.mods) & ctl != 0;
                 return Some(held);
             }
         }
@@ -212,19 +212,12 @@ fn mark_ctrl(keycodes: &[u16], raw_down: &AtomicU32, detail: u32, down: bool) {
 /// EWMH activation with pager source (source 2 bypasses the WM's
 /// focus-stealing prevention — application source is advisory), plus
 /// input focus and a plain raise as belt-and-suspenders.
-fn ewmh_activate(
-    conn: &x11rb::rust_connection::RustConnection,
-    root: u32,
-    active_w: u32,
-    w: u32,
-) {
+fn ewmh_activate(conn: &x11rb::rust_connection::RustConnection, root: u32, active_w: u32, w: u32) {
     use x11rb::connection::Connection as _;
     use x11rb::protocol::xproto::ConnectionExt as _;
     use x11rb::protocol::xproto::EventMask;
     let data = x11rb::protocol::xproto::ClientMessageData::from([w, 2u32, 0, 0, 0]);
-    let msg = x11rb::protocol::xproto::ClientMessageEvent::new(
-        32u8, w, active_w, data,
-    );
+    let msg = x11rb::protocol::xproto::ClientMessageEvent::new(32u8, w, active_w, data);
     let _ = conn.send_event(
         false,
         root,
@@ -248,8 +241,12 @@ fn ewmh_activate(
 fn wm_toplevels<C: x11rb::connection::Connection>(conn: &C, root: u32) -> Vec<u32> {
     use x11rb::protocol::xproto::ConnectionExt as _;
     let mut out = Vec::new();
-    let Ok(cookie) = conn.query_tree(root) else { return out };
-    let Ok(frames) = cookie.reply() else { return out };
+    let Ok(cookie) = conn.query_tree(root) else {
+        return out;
+    };
+    let Ok(frames) = cookie.reply() else {
+        return out;
+    };
     for w in frames.children {
         out.push(w);
         if let Ok(cookie) = conn.query_tree(w) {
@@ -296,7 +293,11 @@ fn own_window_xid(
         if name_of(w).is_some_and(|n| n.contains(except_contains)) {
             continue;
         }
-        let Ok(r) = conn.get_property(false, w, net_wm_pid_w, 0u32, 0u32, 1).ok()?.reply() else {
+        let Ok(r) = conn
+            .get_property(false, w, net_wm_pid_w, 0u32, 0u32, 1)
+            .ok()?
+            .reply()
+        else {
             continue;
         };
         if r.value_len == 0 || r.value32().and_then(|mut v| v.next()) != Some(pid) {
@@ -343,11 +344,27 @@ pub fn raise_dialog(title: &str) {
         let root = conn.setup().roots[screen].root;
         let Some((active_w, wm_name_w, net_wm_name_w, net_wm_pid_w, transient_w)) = (|| {
             Some((
-                conn.intern_atom(false, b"_NET_ACTIVE_WINDOW").ok()?.reply().ok()?.atom,
+                conn.intern_atom(false, b"_NET_ACTIVE_WINDOW")
+                    .ok()?
+                    .reply()
+                    .ok()?
+                    .atom,
                 conn.intern_atom(false, b"WM_NAME").ok()?.reply().ok()?.atom,
-                conn.intern_atom(false, b"_NET_WM_NAME").ok()?.reply().ok()?.atom,
-                conn.intern_atom(false, b"_NET_WM_PID").ok()?.reply().ok()?.atom,
-                conn.intern_atom(false, b"WM_TRANSIENT_FOR").ok()?.reply().ok()?.atom,
+                conn.intern_atom(false, b"_NET_WM_NAME")
+                    .ok()?
+                    .reply()
+                    .ok()?
+                    .atom,
+                conn.intern_atom(false, b"_NET_WM_PID")
+                    .ok()?
+                    .reply()
+                    .ok()?
+                    .atom,
+                conn.intern_atom(false, b"WM_TRANSIENT_FOR")
+                    .ok()?
+                    .reply()
+                    .ok()?
+                    .atom,
             ))
         })() else {
             return;
@@ -400,10 +417,10 @@ pub fn raise_dialog(title: &str) {
                 .ok()?
                 .reply()
                 .ok()?;
-            let tx = (i32::from(aabs.dst_x) + (i32::from(ag.width) - i32::from(g.width)) / 2)
-                .max(0);
-            let ty = (i32::from(aabs.dst_y) + (i32::from(ag.height) - i32::from(g.height)) / 2)
-                .max(0);
+            let tx =
+                (i32::from(aabs.dst_x) + (i32::from(ag.width) - i32::from(g.width)) / 2).max(0);
+            let ty =
+                (i32::from(aabs.dst_y) + (i32::from(ag.height) - i32::from(g.height)) / 2).max(0);
             let _ = conn.configure_window(
                 w,
                 &x11rb::protocol::xproto::ConfigureWindowAux::new()
@@ -416,9 +433,11 @@ pub fn raise_dialog(title: &str) {
         for pass in 0..44 {
             // first ~1.5s: 30ms cadence (beat the first paint — no
             // visible jump from mutter's initial spot); then 150ms
-            std::thread::sleep(std::time::Duration::from_millis(
-                if pass < 22 { 30 } else { 150 },
-            ));
+            std::thread::sleep(std::time::Duration::from_millis(if pass < 22 {
+                30
+            } else {
+                150
+            }));
             let toplevels = wm_toplevels(&conn, root);
             if toplevels.is_empty() {
                 return;
@@ -440,7 +459,13 @@ pub fn raise_dialog(title: &str) {
                 // its parent (and groups it, so FSP stops treating it
                 // as an unrelated new window)
                 app_xid = own_window_xid(
-                    &conn, root, net_wm_pid_w, wm_name_w, net_wm_name_w, &needle, pid,
+                    &conn,
+                    root,
+                    net_wm_pid_w,
+                    wm_name_w,
+                    net_wm_name_w,
+                    &needle,
+                    pid,
                 );
                 if let Some(app) = app_xid {
                     use x11rb::wrapper::ConnectionExt as _;
@@ -495,7 +520,7 @@ pub fn raise_dialog(title: &str) {
 }
 
 // xproto used by the fallback query above
-use x11rb::protocol::xproto as xproto;
+use x11rb::protocol::xproto;
 
 #[cfg(test)]
 mod tests {
@@ -539,7 +564,6 @@ mod tests {
     }
 }
 
-
 /// Is the primary (left) mouse button currently held? An X11
 /// XQueryPointer probe — the server-global state, independent of which
 /// window the pointer is over (an outside release is invisible to the
@@ -557,7 +581,10 @@ pub fn drag_button_held() -> Option<bool> {
     use x11rb::protocol::xproto::ConnectionExt as _;
     let root = conn.setup().roots[screen].root;
     let r = conn.query_pointer(root).ok()?.reply().ok()?;
-    Some(r.mask.intersects(x11rb::protocol::xproto::KeyButMask::BUTTON1)) // Button1Mask
+    Some(
+        r.mask
+            .intersects(x11rb::protocol::xproto::KeyButMask::BUTTON1),
+    ) // Button1Mask
 }
 
 /// Raise the app's own window at launch. A slow cold start (shader
@@ -583,10 +610,22 @@ pub fn raise_self() {
         let root = conn.setup().roots[screen].root;
         let Some((active_w, wm_name_w, net_wm_name_w, net_wm_pid_w)) = (|| {
             Some((
-                conn.intern_atom(false, b"_NET_ACTIVE_WINDOW").ok()?.reply().ok()?.atom,
+                conn.intern_atom(false, b"_NET_ACTIVE_WINDOW")
+                    .ok()?
+                    .reply()
+                    .ok()?
+                    .atom,
                 conn.intern_atom(false, b"WM_NAME").ok()?.reply().ok()?.atom,
-                conn.intern_atom(false, b"_NET_WM_NAME").ok()?.reply().ok()?.atom,
-                conn.intern_atom(false, b"_NET_WM_PID").ok()?.reply().ok()?.atom,
+                conn.intern_atom(false, b"_NET_WM_NAME")
+                    .ok()?
+                    .reply()
+                    .ok()?
+                    .atom,
+                conn.intern_atom(false, b"_NET_WM_PID")
+                    .ok()?
+                    .reply()
+                    .ok()?
+                    .atom,
             ))
         })() else {
             return;
@@ -595,12 +634,14 @@ pub fn raise_self() {
         for pass in 0..44 {
             // first ~1.5s: 30ms cadence (beat the first paint — no
             // visible jump from mutter's initial spot); then 150ms
-            std::thread::sleep(std::time::Duration::from_millis(
-                if pass < 22 { 30 } else { 150 },
-            ));
-            if let Some(w) = own_window_xid(
-                &conn, root, net_wm_pid_w, wm_name_w, net_wm_name_w, "", pid,
-            ) {
+            std::thread::sleep(std::time::Duration::from_millis(if pass < 22 {
+                30
+            } else {
+                150
+            }));
+            if let Some(w) =
+                own_window_xid(&conn, root, net_wm_pid_w, wm_name_w, net_wm_name_w, "", pid)
+            {
                 ewmh_activate(&conn, root, active_w, w);
                 std::thread::sleep(std::time::Duration::from_millis(300));
                 ewmh_activate(&conn, root, active_w, w);

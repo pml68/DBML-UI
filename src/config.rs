@@ -27,13 +27,19 @@ impl ReentrantFlag {
         let mut owner = self.owner.lock().unwrap_or_else(|e| e.into_inner());
         if *owner == Some(id) {
             // same-thread re-entry: the outermost guard releases
-            return ReentrantGuard { flag: self, top: false };
+            return ReentrantGuard {
+                flag: self,
+                top: false,
+            };
         }
         while owner.is_some() {
             owner = self.signal.wait(owner).unwrap_or_else(|e| e.into_inner());
         }
         *owner = Some(id);
-        ReentrantGuard { flag: self, top: true }
+        ReentrantGuard {
+            flag: self,
+            top: true,
+        }
     }
 }
 
@@ -51,10 +57,6 @@ impl Drop for ReentrantGuard<'_> {
         }
     }
 }
-
-
-
-
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
@@ -174,12 +176,16 @@ static CONFIG_PATH_OVERRIDE: std::sync::Mutex<Option<std::path::PathBuf>> =
 
 #[cfg(test)]
 pub fn set_config_path_override(p: std::path::PathBuf) {
-    *CONFIG_PATH_OVERRIDE.lock().unwrap_or_else(|e| e.into_inner()) = Some(p);
+    *CONFIG_PATH_OVERRIDE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = Some(p);
 }
 
 #[cfg(test)]
 pub fn clear_config_path_override() {
-    *CONFIG_PATH_OVERRIDE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    *CONFIG_PATH_OVERRIDE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 #[cfg(test)]
@@ -187,13 +193,18 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(unsafe_code)]
     fn roundtrip_and_recent_rules() {
-        let _g = super::CONFIG_ENV_LOCK
-            .lock();
+        let _g = super::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("dbml-ui-cfg-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let path = dir.join("config");
-        std::env::set_var("DBML_UI_CONFIG", &path);
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_CONFIG", &path);
+        }
 
         let mut c = Config {
             vim: false,
@@ -213,19 +224,32 @@ mod tests {
         assert_eq!(c.recent.len(), RECENT_CAP);
         assert_eq!(c.recent[0], "f11");
 
-        std::env::remove_var("DBML_UI_CONFIG");
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn missing_file_is_default_vim() {
-        let _g = super::CONFIG_ENV_LOCK
-            .lock();
-        std::env::set_var(
-            "DBML_UI_CONFIG",
-            std::env::temp_dir().join("dbml-ui-cfg-missing-none"),
-        );
+        let _g = super::CONFIG_ENV_LOCK.lock();
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var(
+                "DBML_UI_CONFIG",
+                std::env::temp_dir().join("dbml-ui-cfg-missing-none"),
+            );
+        }
+
         assert_eq!(Config::load(), Config::default());
-        std::env::remove_var("DBML_UI_CONFIG");
+
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+        }
     }
 }

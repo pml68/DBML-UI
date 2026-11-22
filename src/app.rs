@@ -33,7 +33,10 @@ pub enum Message {
     /// Wheel motion over the editor pane, both axes in notches (winit
     /// lines, or pixels / 40) and app-space: positive `v` scrolls the view
     /// down, positive `h` scrolls it right.
-    EditorScrolled { v: f32, h: f32 },
+    EditorScrolled {
+        v: f32,
+        h: f32,
+    },
     /// Left-press in the editor pane (local px).
     EditorPressed(Point),
     /// The pane seam was pressed (on the invisible resize strip); drag to
@@ -637,7 +640,8 @@ pub struct Tab {
     /// tabs' requests are consumed unparsed and nothing ever re-requests
     /// them. This flag knows which tabs are missing their reply: switching
     /// to one re-kicks its current generation.
-    pub diag_done: Option<u64>,    /// Syntax-highlight tokens for `source` (byte spans), rebuilt with it.
+    pub diag_done: Option<u64>,
+    /// Syntax-highlight tokens for `source` (byte spans), rebuilt with it.
     pub highlights: Vec<dbml_ui::dbml::highlight::Token>,
     /// User-dragged table positions (diagram cells, by table name);
     /// survive re-parses while editing.
@@ -775,8 +779,7 @@ impl Tab {
             }
         }
         let schema = model::build(&doc);
-        self.diagram =
-            layout::layout_with_all_overrides(&schema, &self.table_pos, &self.note_pos);
+        self.diagram = layout::layout_with_all_overrides(&schema, &self.table_pos, &self.note_pos);
         // keep highlight state aligned with the new edge list (indices are
         // stable for an unchanged schema; edits may shift them, which just
         // moves the highlight — the amounts ease back out)
@@ -1246,9 +1249,8 @@ impl App {
                             let mut tab = Tab::with_source(st.text.clone());
                             tab.file = Some(path.clone());
                             tab.saved_text = st.text.clone();
-                            tab.liveness = crate::app::FileLiveness::DeletedOnDisk {
-                                err: e.to_string(),
-                            };
+                            tab.liveness =
+                                crate::app::FileLiveness::DeletedOnDisk { err: e.to_string() };
                             return Some(finish_restored_tab(tab, &st, mode_of));
                         }
                     }
@@ -1258,7 +1260,8 @@ impl App {
                     tab.file = Some(path.clone());
                     // the baseline is the DISK content: present makes
                     // unsaved snapshot edits dirty again
-                    tab.saved_text = std::fs::read_to_string(path).unwrap_or_else(|_| st.text.clone());
+                    tab.saved_text =
+                        std::fs::read_to_string(path).unwrap_or_else(|_| st.text.clone());
                 } else {
                     tab.saved_text = st.text.clone();
                 }
@@ -1353,12 +1356,12 @@ impl App {
     /// (see `diag_done`). Same generation, same content: an extra parse
     /// is wasted only when a reply is already in flight.
     fn rekick_diagnostics(&mut self, idx: usize) {
-        let (gen, src) = {
+        let (generation, src) = {
             let t = &self.tabs[idx];
             (t.diag_gen, t.source.clone())
         };
-        if self.tabs[idx].diag_done != Some(gen) {
-            dbml::boa_diag::request(gen, src);
+        if self.tabs[idx].diag_done != Some(generation) {
+            dbml::boa_diag::request(generation, src);
         }
     }
 
@@ -1555,9 +1558,8 @@ impl App {
 
     /// The scroll limit: the slots plus the + zone past the viewport.
     fn tab_scroll_max(&self) -> f32 {
-        (STRIP_LEFT + self.tabs.len() as f32 * TAB_SLOT_W + 30.0
-            - self.tab_strip_viewport_w())
-        .max(0.0)
+        (STRIP_LEFT + self.tabs.len() as f32 * TAB_SLOT_W + 30.0 - self.tab_strip_viewport_w())
+            .max(0.0)
     }
 
     fn clamp_tab_scroll(&mut self) {
@@ -1665,9 +1667,7 @@ impl App {
         if !drag.moved {
             // pointer travel from the press point (grab_dx + the pressed
             // slot's origin reconstructs the press x)
-            if (x - (drag.grab_dx + drag.from as f32 * TAB_SLOT_W)).abs()
-                < TAB_DRAG_THRESHOLD
-            {
+            if (x - (drag.grab_dx + drag.from as f32 * TAB_SLOT_W)).abs() < TAB_DRAG_THRESHOLD {
                 return;
             }
             drag.moved = true;
@@ -1684,9 +1684,7 @@ impl App {
         // Chrome's swap rule: the dragged tab's leading edge crossing the
         // neighbor slot's midpoint switches the two. The two thresholds
         // differ by SLOT - TAB_W (the gap), giving natural hysteresis.
-        if drag.from + 1 < n
-            && vx + TAB_VISUAL_W >= (drag.from as f32 + 1.5) * TAB_SLOT_W
-        {
+        if drag.from + 1 < n && vx + TAB_VISUAL_W >= (drag.from as f32 + 1.5) * TAB_SLOT_W {
             let j = drag.from + 1;
             move_element(&mut self.tabs, drag.from, j);
             self.active = j; // the dragged tab (was active) follows
@@ -1740,10 +1738,9 @@ impl App {
 
     /// Right-press on a tab: open its context menu anchored at the pointer.
     fn tab_menu_open(&mut self, idx: usize) {
-        let at = self.window_cursor.unwrap_or(Point::new(
-            STRIP_LEFT + idx as f32 * TAB_SLOT_W,
-            0.0,
-        ));
+        let at = self
+            .window_cursor
+            .unwrap_or(Point::new(STRIP_LEFT + idx as f32 * TAB_SLOT_W, 0.0));
         self.tab_menu = Some(TabMenu { tab: idx, at });
     }
 
@@ -2063,7 +2060,8 @@ impl App {
         // The records affordance wins over the generic table press: it
         // opens the record view instead of starting a table drag (which
         // would end in a jump-to-editor click on release).
-        if let Some(b) = dia::records_icon_hit(&self.cur().diagram, self.cur().zoom, self.cur().pan, p)
+        if let Some(b) =
+            dia::records_icon_hit(&self.cur().diagram, self.cur().zoom, self.cur().pan, p)
         {
             let node = b.node;
             self.drag = Drag::None;
@@ -2118,19 +2116,16 @@ impl App {
                 Some(corner) => {
                     // the pinned anchor: the OPPOSITE corner, in cells
                     let anchor = match corner {
-                        crate::app::StickyCorner::TopLeft => (
-                            rect.0 as f32 + rect.2 as f32,
-                            rect.1 as f32 + rect.3 as f32,
-                        ),
+                        crate::app::StickyCorner::TopLeft => {
+                            (rect.0 as f32 + rect.2 as f32, rect.1 as f32 + rect.3 as f32)
+                        }
                         crate::app::StickyCorner::TopRight => {
                             (rect.0 as f32, rect.1 as f32 + rect.3 as f32)
                         }
                         crate::app::StickyCorner::BottomLeft => {
                             (rect.0 as f32 + rect.2 as f32, rect.1 as f32)
                         }
-                        crate::app::StickyCorner::BottomRight => {
-                            (rect.0 as f32, rect.1 as f32)
-                        }
+                        crate::app::StickyCorner::BottomRight => (rect.0 as f32, rect.1 as f32),
                     };
                     self.drag = Drag::StickyResize {
                         name,
@@ -2263,7 +2258,11 @@ impl App {
                 g.members
                     .iter()
                     .filter_map(|&node| {
-                        cur.diagram.boxes.iter().enumerate().find(|(_, b)| b.node == node)
+                        cur.diagram
+                            .boxes
+                            .iter()
+                            .enumerate()
+                            .find(|(_, b)| b.node == node)
                     })
                     .map(|(i, b)| {
                         match cur
@@ -2359,17 +2358,12 @@ impl App {
         None
     }
 
-
     /// Open the header-color menu for a schema node, anchored at the
     /// pointer. Stale indices no-op (the menu would act on nothing).
     fn table_header_menu_open(&mut self, at: Point, target: PickerTarget) {
         let live = match &target {
-            PickerTarget::Table(node) => {
-                self.cur().diagram.boxes.iter().any(|b| b.node == *node)
-            }
-            PickerTarget::Group(name) => {
-                self.cur().diagram.groups.iter().any(|g| &g.name == name)
-            }
+            PickerTarget::Table(node) => self.cur().diagram.boxes.iter().any(|b| b.node == *node),
+            PickerTarget::Group(name) => self.cur().diagram.groups.iter().any(|g| &g.name == name),
             PickerTarget::Edge(ei) => *ei < self.cur().diagram.edges.len(),
         };
         if live {
@@ -2574,24 +2568,13 @@ impl App {
                 let (ax, ay) = (anchor.0.round() as i32, anchor.1.round() as i32);
                 let (x, y, w, h) = match corner {
                     StickyCorner::TopLeft => (px, py, (ax - px).max(MIN_W), (ay - py).max(MIN_H)),
-                    StickyCorner::TopRight => (
-                        ax,
-                        py,
-                        (px - ax).max(MIN_W),
-                        (ay - py).max(MIN_H),
-                    ),
-                    StickyCorner::BottomLeft => (
-                        px,
-                        ay,
-                        (ax - px).max(MIN_W),
-                        (py - ay).max(MIN_H),
-                    ),
-                    StickyCorner::BottomRight => (
-                        ax,
-                        ay,
-                        (px - ax).max(MIN_W),
-                        (py - ay).max(MIN_H),
-                    ),
+                    StickyCorner::TopRight => (ax, py, (px - ax).max(MIN_W), (ay - py).max(MIN_H)),
+                    StickyCorner::BottomLeft => {
+                        (px, ay, (ax - px).max(MIN_W), (py - ay).max(MIN_H))
+                    }
+                    StickyCorner::BottomRight => {
+                        (ax, ay, (px - ax).max(MIN_W), (py - ay).max(MIN_H))
+                    }
                 };
                 let _ = orig;
                 let src = self.source().to_string();
@@ -2629,7 +2612,10 @@ impl App {
         // A moved release is the drag that shifted the members; a group
         // missing from the parse (stale region) stays inert.
         if let Drag::Group {
-            name, anchor, moved, ..
+            name,
+            anchor,
+            moved,
+            ..
         } = &self.drag
         {
             let clicked = !*moved && p.distance(*anchor) <= 3.0;
@@ -2722,7 +2708,10 @@ impl App {
         }
         if let Some(p) = self.canvas_cursor {
             let s = new / old;
-            self.cur_mut().pan = Vector::new(p.x - (p.x - self.cur().pan.x) * s, p.y - (p.y - self.cur().pan.y) * s);
+            self.cur_mut().pan = Vector::new(
+                p.x - (p.x - self.cur().pan.x) * s,
+                p.y - (p.y - self.cur().pan.y) * s,
+            );
         }
         self.cur_mut().zoom = new;
     }
@@ -2755,7 +2744,6 @@ impl App {
         self.cur_mut().hover_edges.clear();
         // the arrangement reshapes the whole diagram: re-fit the view
         self.zoom_to_fit();
-
     }
 
     /// Zoom to fit: scale + pan so the whole diagram (every box plus a
@@ -2809,10 +2797,8 @@ impl App {
         // center; the same composition `to_px` and the wheel's
         // cursor-anchored zoom use (screen = (cell + margin) * size + pan)
         let pan = Vector::new(
-            (cw - content_w * scale) / 2.0
-                - (min_x as f32 + MARGIN_CELLS) * CELL_ASPECT * scale,
-            (ch - content_h * scale) / 2.0
-                - (min_y as f32 + MARGIN_CELLS) * scale,
+            (cw - content_w * scale) / 2.0 - (min_x as f32 + MARGIN_CELLS) * CELL_ASPECT * scale,
+            (ch - content_h * scale) / 2.0 - (min_y as f32 + MARGIN_CELLS) * scale,
         );
         self.cur_mut().zoom = scale;
         self.cur_mut().pan = pan;
@@ -2960,7 +2946,12 @@ pub fn subscription(app: &App) -> iced::Subscription<Message> {
                     m.contains(KeyModifiers::ALT),
                 );
             }
-            Some(Message::KeyEcho { raw, code, mods: m, stripped })
+            Some(Message::KeyEcho {
+                raw,
+                code,
+                mods: m,
+                stripped,
+            })
         }
         iced::Event::Keyboard(iced::keyboard::Event::KeyReleased { key, .. }) => {
             // web: the release clears the tracked held set
@@ -3022,8 +3013,7 @@ pub fn subscription(app: &App) -> iced::Subscription<Message> {
     // a diagram drag is active (an outside release is never DELIVERED on
     // X11, but it is observable)
     let drag_watch = if !matches!(app.drag, Drag::None) {
-        iced::time::every(std::time::Duration::from_millis(100))
-            .map(|_| Message::DragWatchTick)
+        iced::time::every(std::time::Duration::from_millis(100)).map(|_| Message::DragWatchTick)
     } else {
         iced::Subscription::none()
     };
@@ -3034,8 +3024,7 @@ pub fn subscription(app: &App) -> iced::Subscription<Message> {
         // the diagnostics-engine poll: their engine (boa_diag) finishes
         // parses on the worker thread; this tick carries each finished
         // reply into the update loop
-        iced::time::every(std::time::Duration::from_millis(120))
-            .map(|_| Message::BoaPoll),
+        iced::time::every(std::time::Duration::from_millis(120)).map(|_| Message::BoaPoll),
         file_poll,
         drag_watch,
         window_resize(),
@@ -3172,7 +3161,12 @@ fn save_as_picker_task(default_name: String) -> iced::Task<Message> {
 
 /// The native save dialog (rfd: GTK on Linux, native on Windows/macOS).
 /// Must run off the UI thread — the blocking API drives its own event loop.
-fn pick_save_path_blocking(default_name: &str, filter_name: &str, patterns: &[&str], title: &str) -> PickOutcome {
+fn pick_save_path_blocking(
+    default_name: &str,
+    filter_name: &str,
+    patterns: &[&str],
+    title: &str,
+) -> PickOutcome {
     // the native dialog maps behind the app window (no transient parent):
     // raise + focus it as soon as it maps
     crate::platform::raise_dialog(title);
@@ -3205,8 +3199,14 @@ fn picker_filters(kind: PickerKind) -> Vec<&'static str> {
         "--file-filter=SQL dumps | *.sql",
         "--file-filter=All files | *",
     ];
-    let dbml = ["--file-filter=DBML diagrams | *.dbml", "--file-filter=All files | *"];
-    let sql = ["--file-filter=SQL dumps | *.sql", "--file-filter=All files | *"];
+    let dbml = [
+        "--file-filter=DBML diagrams | *.dbml",
+        "--file-filter=All files | *",
+    ];
+    let sql = [
+        "--file-filter=SQL dumps | *.sql",
+        "--file-filter=All files | *",
+    ];
     match kind {
         PickerKind::DiagramAndSql => combined.to_vec(),
         PickerKind::Dbml => dbml.to_vec(),
@@ -3245,7 +3245,13 @@ fn pick_file_blocking(kind: PickerKind) -> PickOutcome {
         ("zenity", zenity_args),
         (
             "kdialog",
-            vec!["--getopenfilename", ".", kdialog_filter, "--title", "Open DBML file"],
+            vec![
+                "--getopenfilename",
+                ".",
+                kdialog_filter,
+                "--title",
+                "Open DBML file",
+            ],
         ),
     ] {
         if let Some(out) = run(tool, &args) {
@@ -3300,7 +3306,6 @@ fn open_file_picker_task(kind: PickerKind) -> iced::Task<Message> {
         }
     })
 }
-
 
 /// The export save-dialog task: desktop asks for a destination path; the
 /// web build has no dialog yet.
@@ -3452,16 +3457,18 @@ fn header_color_edits(
                     let cut = cleaned.trim_end().len();
                     Some((
                         open + 1..close,
-                        format!("{}, headercolor: {color}{}", &cleaned[..cut], &cleaned[cut..]),
+                        format!(
+                            "{}, headercolor: {color}{}",
+                            &cleaned[..cut],
+                            &cleaned[cut..]
+                        ),
                     ))
                 }
             } else if cleaned.trim().is_empty() {
                 // nothing left inside: drop the whole bracket group and
                 // squeeze the gap back to one space (`Table users {`); the
                 // survivor whitespace after the brackets counts toward it
-                let repl = if src[close + 1..]
-                    .starts_with(|c: char| c.is_ascii_whitespace())
-                {
+                let repl = if src[close + 1..].starts_with(|c: char| c.is_ascii_whitespace()) {
                     ""
                 } else {
                     " "
@@ -3562,11 +3569,11 @@ fn remove_headercolor(inner: &str) -> String {
     // entry's own trailing comma when it has one, else the preceding one)
     let mut cuts: Vec<std::ops::Range<usize>> = Vec::new();
     for (idx, &(cs, ce)) in segs.iter().enumerate() {
-        let key_end = inner[cs..ce]
-            .find(':')
-            .map(|k| cs + k)
-            .unwrap_or(ce);
-        if !inner[cs..key_end].trim().eq_ignore_ascii_case("headercolor") {
+        let key_end = inner[cs..ce].find(':').map(|k| cs + k).unwrap_or(ce);
+        if !inner[cs..key_end]
+            .trim()
+            .eq_ignore_ascii_case("headercolor")
+        {
             continue;
         }
         if idx + 1 < segs.len() {
@@ -3606,8 +3613,7 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
             // the watchdog while a drag is active (X11): the button came
             // up while the pointer was outside — end the drag now, at
             // the last known position
-            if !matches!(app.drag, Drag::None)
-                && crate::platform::drag_button_held() == Some(false)
+            if !matches!(app.drag, Drag::None) && crate::platform::drag_button_held() == Some(false)
             {
                 app.canvas_released(app.canvas_cursor.unwrap_or_default());
             }
@@ -3620,9 +3626,9 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
         Message::BoaPoll => {
             if let Some(reply) = dbml::boa_diag::try_recv() {
                 for t in &mut app.tabs {
-                    if t.diag_gen == reply.gen {
+                    if t.diag_gen == reply.generation {
                         t.diagnostics = reply.diagnostics();
-                        t.diag_done = Some(reply.gen);
+                        t.diag_done = Some(reply.generation);
                         break;
                     }
                 }
@@ -3651,8 +3657,7 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
         }
         Message::DiagnosticToggleFixMenu => {
             app.diagnostics_fix_menu = !app.diagnostics_fix_menu;
-            app.diagnostics_fix_menu_since =
-                app.diagnostics_fix_menu.then(std::time::Instant::now);
+            app.diagnostics_fix_menu_since = app.diagnostics_fix_menu.then(std::time::Instant::now);
         }
         Message::DiagnosticDismissFixMenu => {
             app.diagnostics_fix_menu = false;
@@ -3696,7 +3701,12 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
                 app.set_message(if down { "ctrl DOWN" } else { "ctrl UP" });
             }
         }
-        Message::KeyEcho { raw, code, mods, stripped } => {
+        Message::KeyEcho {
+            raw,
+            code,
+            mods,
+            stripped,
+        } => {
             // the DE re-injection pair: [stripped copy, flagged copy] for
             // ONE physical press. The stripped copy carries the restored
             // ctrl and fires the chord; the flagged twin is dropped.
@@ -3707,15 +3717,10 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
             // inside 80ms of the press (winit's delay is 250ms+), so a
             // same-code+mods echo inside that window is the twin.
             if !matches!(code, KeyCode::Char(_)) {
-                let twin = app
-                    .last_named_echo
-                    .as_ref()
-                    .is_some_and(|(c, m, t)| {
-                        *c == code && *m == mods
-                            && t.elapsed().as_millis() < 80
-                    });
-                app.last_named_echo =
-                    Some((code, mods, std::time::Instant::now()));
+                let twin = app.last_named_echo.as_ref().is_some_and(|(c, m, t)| {
+                    *c == code && *m == mods && t.elapsed().as_millis() < 80
+                });
+                app.last_named_echo = Some((code, mods, std::time::Instant::now()));
                 if twin {
                     if app.key_debug {
                         app.set_message("echo twin dropped");
@@ -3761,7 +3766,8 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
                     (app.cur().editor_scroll + v).clamp(0.0, app.max_scroll());
             }
             if h != 0.0 {
-                app.cur_mut().editor_hscroll = (app.cur().editor_hscroll + h).clamp(0.0, app.max_hscroll());
+                app.cur_mut().editor_hscroll =
+                    (app.cur().editor_hscroll + h).clamp(0.0, app.max_hscroll());
             }
         }
         Message::DividerPressed => app.drag = Drag::Divider,
@@ -3787,10 +3793,7 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
                     std::fs::create_dir_all("/tmp/dbml-ui-strip").ok();
                     let n = app.tab_dump_seq;
                     app.tab_dump_seq += 1;
-                    crate::view::dump_strip_frame(
-                        app,
-                        &format!("/tmp/dbml-ui-strip/{n:03}.png"),
-                    );
+                    crate::view::dump_strip_frame(app, &format!("/tmp/dbml-ui-strip/{n:03}.png"));
                 }
             }
             // a Regular-mode selection drag also follows the pointer
@@ -3842,8 +3845,8 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
                 if app.tab_anim.len() < app.tabs.len() {
                     app.tab_anim.resize(app.tabs.len(), 0.0);
                 }
-                let vx = (drag.x - drag.grab_dx)
-                    .clamp(0.0, (app.tabs.len() - 1) as f32 * TAB_SLOT_W);
+                let vx =
+                    (drag.x - drag.grab_dx).clamp(0.0, (app.tabs.len() - 1) as f32 * TAB_SLOT_W);
                 app.tab_anim[drag.from] = vx - drag.from as f32 * TAB_SLOT_W;
             }
         }
@@ -3872,9 +3875,9 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
             }
         }
         Message::OpenFilePicker(_) | Message::PickerDismissed => {} // handled in update
-        Message::SaveAsPrompt | Message::SaveAs(_) => {}         // handled in update
-        Message::FormatNow => {}                                 // handled in update
-        Message::ToggleFmtOnSave => {}                           // handled in update
+        Message::SaveAsPrompt | Message::SaveAs(_) => {}            // handled in update
+        Message::FormatNow => {}                                    // handled in update
+        Message::ToggleFmtOnSave => {}                              // handled in update
         Message::NewDiagram => app.new_diagram(),
         Message::NewTab => app.new_tab(),
         Message::CloseTab(idx) => app.close_tab(idx),
@@ -3988,9 +3991,7 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
             };
             match result {
                 Ok(msg) => app.set_message_kind(ToastKind::Success, msg),
-                Err(e) => {
-                    app.set_message_kind(ToastKind::Error, format!("export failed: {e}"))
-                }
+                Err(e) => app.set_message_kind(ToastKind::Error, format!("export failed: {e}")),
             }
         }
         Message::TabCloseSave => {
@@ -4136,9 +4137,9 @@ fn handle_message(app: &mut App, message: Message) -> iced::Task<Message> {
     handle_message_finish(app)
 }
 
-    /// Common tail of a restored tab: vim mode, cursor (clamped into the
-    /// buffer), viewport scrolls, and the document-open flag.
-    /// Re-apply a session tab's dragged diagram layout: table positions,
+/// Common tail of a restored tab: vim mode, cursor (clamped into the
+/// buffer), viewport scrolls, and the document-open flag.
+/// Re-apply a session tab's dragged diagram layout: table positions,
 /// sticky rects and the raise order go back onto the tab and the diagram
 /// re-lays-out with them. A tab with NO saved positions (first restore
 /// of a never-arranged file, or a legacy session) starts from the
@@ -4188,28 +4189,27 @@ fn apply_session_layout(tab: &mut Tab, st: &crate::session::SessionTab) {
 }
 
 fn finish_restored_tab(
-        mut tab: Tab,
-        st: &crate::session::SessionTab,
-        mode_of: impl Fn(u8) -> editor::Mode,
-    ) -> Tab {
-        apply_session_layout(&mut tab, st);
-        tab.editor.mode = mode_of(st.mode);
-        // the restored cursor folds onto the last CONTENT line: the
-        // EOL-marker row is not a line (a pre-fix session could have
-        // saved the caret parked on the unnumbered row)
-        let row = st.cursor.0.min(tab.editor.buf.last_content_row());
-        let col = st.cursor.1.min(tab.editor.buf.line_len(row));
-        tab.editor
-            .buf
-            .move_cursor(editor::buffer::Move::Jump(row, col));
-        tab.editor_scroll = st.scroll;
-        tab.editor_hscroll = st.hscroll;
-        tab.doc_open = st.doc_open && (tab.file.is_some() || !st.text.is_empty());
-        tab
-    }
+    mut tab: Tab,
+    st: &crate::session::SessionTab,
+    mode_of: impl Fn(u8) -> editor::Mode,
+) -> Tab {
+    apply_session_layout(&mut tab, st);
+    tab.editor.mode = mode_of(st.mode);
+    // the restored cursor folds onto the last CONTENT line: the
+    // EOL-marker row is not a line (a pre-fix session could have
+    // saved the caret parked on the unnumbered row)
+    let row = st.cursor.0.min(tab.editor.buf.last_content_row());
+    let col = st.cursor.1.min(tab.editor.buf.line_len(row));
+    tab.editor
+        .buf
+        .move_cursor(editor::buffer::Move::Jump(row, col));
+    tab.editor_scroll = st.scroll;
+    tab.editor_hscroll = st.hscroll;
+    tab.doc_open = st.doc_open && (tab.file.is_some() || !st.text.is_empty());
+    tab
+}
 
 impl App {
-
     /// Fresh app with no document: the side pane shows the start screen
     /// (Open file / New diagram) and is not collapsible.
     pub fn blank_start() -> Self {
@@ -4414,7 +4414,9 @@ impl App {
                 if sel {
                     let _ = self.editor_mut().buf.cut_selection();
                 } else {
-                    self.editor_mut().buf.move_cursor(editor::buffer::Move::Forward);
+                    self.editor_mut()
+                        .buf
+                        .move_cursor(editor::buffer::Move::Forward);
                     self.editor_mut().buf.delete_char();
                 }
                 self.after_edit(editor::Action::Changed);
@@ -4427,14 +4429,20 @@ impl App {
                 if !sel {
                     self.editor_mut().buf.start_selection();
                 }
-                self.editor_mut().buf.move_cursor(editor::buffer::Move::WordBack);
+                self.editor_mut()
+                    .buf
+                    .move_cursor(editor::buffer::Move::WordBack);
             }
             KeyCode::Right if m.contains(KeyModifiers::ALT) => {
                 if !sel {
                     self.editor_mut().buf.start_selection();
                 }
-                self.editor_mut().buf.move_cursor(editor::buffer::Move::WordEnd);
-                self.editor_mut().buf.move_cursor(editor::buffer::Move::Forward);
+                self.editor_mut()
+                    .buf
+                    .move_cursor(editor::buffer::Move::WordEnd);
+                self.editor_mut()
+                    .buf
+                    .move_cursor(editor::buffer::Move::Forward);
             }
             KeyCode::Left => mv(
                 self,
@@ -4571,8 +4579,7 @@ impl App {
                     if self.tabs[idx].disk_hash == Some(h) {
                         continue; // no change we care about
                     }
-                    let was =
-                        std::mem::replace(&mut self.tabs[idx].liveness, FileLiveness::InSync);
+                    let was = std::mem::replace(&mut self.tabs[idx].liveness, FileLiveness::InSync);
                     if h == Self::hash_text(&self.tabs[idx].editor.text()) || h == saved_hash {
                         // our own write (fmt-on-save / save) or a write of
                         // identical content: silently re-sync
@@ -4584,9 +4591,7 @@ impl App {
                         // pristine: auto-reload, no question asked
                         self.reload_tab_from(idx, &text);
                         self.tabs[idx].disk_hash = Some(h);
-                        if was == FileLiveness::InSync {
-
-                        }
+                        if was == FileLiveness::InSync {}
                     } else {
                         self.tabs[idx].liveness = FileLiveness::Conflict { theirs: text };
                         self.tabs[idx].disk_hash = Some(h);
@@ -4619,23 +4624,23 @@ impl App {
                                 self.tabs[idx].liveness = FileLiveness::InSync;
                                 self.config.push_recent(&to.to_string_lossy());
                                 self.config.save();
-        
                             }
                             continue;
                         }
                     }
                     let was = std::mem::replace(
                         &mut self.tabs[idx].liveness,
-                        FileLiveness::DeletedOnDisk {
-                            err: e.to_string(),
-                        },
+                        FileLiveness::DeletedOnDisk { err: e.to_string() },
                     );
                     if !matches!(was, FileLiveness::DeletedOnDisk { .. }) {
                         let name = file
                             .file_name()
                             .map(|n| n.to_string_lossy().to_string())
                             .unwrap_or_default();
-                        self.set_message_kind(ToastKind::Error, format!("\"{name}\" is gone from disk"));
+                        self.set_message_kind(
+                            ToastKind::Error,
+                            format!("\"{name}\" is gone from disk"),
+                        );
                     }
                 }
             }
@@ -4685,7 +4690,6 @@ impl App {
         let h = Self::hash_text(&theirs);
         self.cur_mut().disk_hash = Some(h);
         self.cur_mut().liveness = FileLiveness::InSync;
-
     }
 
     /// Pill action: accept the foreign disk change as acknowledged and
@@ -4693,7 +4697,6 @@ impl App {
     pub fn file_keep_mine(&mut self) {
         if matches!(self.cur().liveness, FileLiveness::Conflict { .. }) {
             self.cur_mut().liveness = FileLiveness::InSync;
-
         }
     }
 
@@ -4712,7 +4715,6 @@ impl App {
             self.cur_mut().liveness = FileLiveness::InSync;
             self.config.push_recent(&to.to_string_lossy());
             self.config.save();
-    
         }
     }
 
@@ -4854,7 +4856,6 @@ impl App {
         ));
         self.editor_mut().set_text(&new_src);
         self.after_edit(Action::Changed);
-
     }
 
     /// A relationship's `[color:]` splice: the edge's top-level Ref
@@ -4914,9 +4915,7 @@ impl App {
                 self.editor_mut().buf.insert_str(&format!(" [color: {c}]"));
             }
             (Some(c), None) => {
-                self.editor_mut()
-                    .buf
-                    .insert_str(&format!(" [color: {c}]"));
+                self.editor_mut().buf.insert_str(&format!(" [color: {c}]"));
             }
             (None, Some(end_byte)) => {
                 let del_chars = src[span.end..end_byte].chars().count();
@@ -5014,10 +5013,7 @@ impl App {
         // surgery on the header: from the group's span start, find the
         // `TableGroup` keyword, the name token, then the optional
         // `[...]` settings before the body's `{`
-        let Some(header_end) = src[g.span.start..]
-            .find('{')
-            .map(|i| g.span.start + i)
-        else {
+        let Some(header_end) = src[g.span.start..].find('{').map(|i| g.span.start + i) else {
             return;
         };
         let header = src[g.span.start..header_end].to_string();
@@ -5039,7 +5035,11 @@ impl App {
                     kept.push(format!("color: {c}"));
                 }
                 if kept.is_empty() {
-                    format!("{} {}", header[..i].trim_end(), header[close + 1..].trim_start())
+                    format!(
+                        "{} {}",
+                        header[..i].trim_end(),
+                        header[close + 1..].trim_start()
+                    )
                 } else {
                     format!(
                         "{}[{}] {}",
@@ -5053,7 +5053,10 @@ impl App {
             (None, None) => return,
         };
         let span = g.span.start..g.span.start + header.len();
-        let del_chars = src.get(span.clone()).map(|s| s.chars().count()).unwrap_or(0);
+        let del_chars = src
+            .get(span.clone())
+            .map(|s| s.chars().count())
+            .unwrap_or(0);
         let (row, byte_col) = dbml::parser::line_col_at(&src, span.start);
         let col = src
             .split('\n')
@@ -5141,8 +5144,11 @@ impl App {
         if !self.doc_open() {
             return;
         }
-        let next =
-            if self.maximized == Maximized::Editor { Maximized::None } else { Maximized::Editor };
+        let next = if self.maximized == Maximized::Editor {
+            Maximized::None
+        } else {
+            Maximized::Editor
+        };
         self.set_maximized(next);
     }
 
@@ -5195,10 +5201,10 @@ impl App {
             content = dbml::sqldump::import(&content, dialect).map_err(|e| {
                 std::io::Error::new(std::io::ErrorKind::InvalidData, format!("import: {e}"))
             })?;
-            self.set_message_kind(ToastKind::Warning, format!(
-                "imported as {} — Save As to keep the DBML",
-                dialect.label()
-            ));
+            self.set_message_kind(
+                ToastKind::Warning,
+                format!("imported as {} — Save As to keep the DBML", dialect.label()),
+            );
             imported = true;
         }
         if imported {
@@ -5286,7 +5292,6 @@ impl App {
                 self.editor_mut().jump(row, col);
                 self.follow_cursor_horizontal();
                 self.keep_cursor_visible();
-        
             }
             Some(_) => self.set_message_kind(ToastKind::Info, "already formatted"),
             None => self.set_message_kind(ToastKind::Warning, "format skipped: parse errors"),
@@ -5317,15 +5322,15 @@ impl App {
             anchor = if d == 0 {
                 non_blank(old_lines, old_row)
             } else {
-                non_blank(old_lines, old_row + d).or_else(|| {
-                    old_row.checked_sub(d).and_then(|r| non_blank(old_lines, r))
-                })
+                non_blank(old_lines, old_row + d)
+                    .or_else(|| old_row.checked_sub(d).and_then(|r| non_blank(old_lines, r)))
             };
             if anchor.is_some() {
                 break;
             }
         }
-        let col_at = |row: usize| old_col.min(new_lines.get(row).map(|l| l.chars().count()).unwrap_or(0));
+        let col_at =
+            |row: usize| old_col.min(new_lines.get(row).map(|l| l.chars().count()).unwrap_or(0));
         if let Some(text) = anchor {
             // the match nearest the old row, searched outward the same way
             for d in 0..=new_lines.len() {
@@ -5392,11 +5397,14 @@ impl App {
         self.cur_mut().liveness = FileLiveness::InSync;
         self.config.push_recent(&target.to_string_lossy());
         self.config.save();
-        self.set_message_kind(ToastKind::Success, format!(
-            "\"{}\" written, {}B",
-            target.display(),
-            self.cur().saved_text.len()
-        ));
+        self.set_message_kind(
+            ToastKind::Success,
+            format!(
+                "\"{}\" written, {}B",
+                target.display(),
+                self.cur().saved_text.len()
+            ),
+        );
         Ok(())
     }
 
@@ -5501,7 +5509,6 @@ impl App {
         Ok(format!("exported {path}"))
     }
 
-
     fn key_pressed(&mut self, code: KeyCode, mut mods: KeyModifiers) {
         if std::env::var("DBML_UI_KEY_DEBUG").is_ok() {
             eprintln!(
@@ -5524,10 +5531,7 @@ impl App {
             self.physical_ctrl = true;
         } else if matches!(code, KeyCode::Char(_) | KeyCode::Space) {
             let held = crate::platform::ctrl_held().unwrap_or(self.physical_ctrl);
-            if held
-                && self.config.vim
-                && self.editor().find.is_none()
-            {
+            if held && self.config.vim && self.editor().find.is_none() {
                 // the DE re-injects the key twice for one press (stripped
                 // first, flagged second): the stripped copy fires the chord
                 // here; the flagged twin is dropped below. Space rides
@@ -5853,8 +5857,9 @@ impl App {
             // typing reads as a glitch). The left-ctrl pair salvage has
             // already undone the stripped twin's stray letter above, so
             // the inert chord leaves nothing behind.
-            KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL)
-                && self.editor().mode != editor::Mode::Insert =>
+            KeyCode::Char('d')
+                if key.modifiers.contains(KeyModifiers::CONTROL)
+                    && self.editor().mode != editor::Mode::Insert =>
             {
                 self.last_scroll_chord = Some(std::time::Instant::now());
                 // the DE re-injection: the stripped twin of this very press
@@ -5864,8 +5869,9 @@ impl App {
                 self.half_page(1.0);
                 return;
             }
-            KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL)
-                && self.editor().mode != editor::Mode::Insert =>
+            KeyCode::Char('u')
+                if key.modifiers.contains(KeyModifiers::CONTROL)
+                    && self.editor().mode != editor::Mode::Insert =>
             {
                 self.last_scroll_chord = Some(std::time::Instant::now());
                 self.editor_mut().cancel_pending();
@@ -5963,14 +5969,24 @@ impl App {
                 // wraparound; armed before the alphanumeric arm so the
                 // chords are never typed into the filter
                 KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    let len = self.completion.as_ref().map(|c| c.items.len()).unwrap_or(1).max(1);
+                    let len = self
+                        .completion
+                        .as_ref()
+                        .map(|c| c.items.len())
+                        .unwrap_or(1)
+                        .max(1);
                     let c = self.completion.as_mut().unwrap();
                     c.selected = (c.selected + 1) % len;
                     self.completion_scroll_to_selection();
                     return;
                 }
                 KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    let len = self.completion.as_ref().map(|c| c.items.len()).unwrap_or(1).max(1);
+                    let len = self
+                        .completion
+                        .as_ref()
+                        .map(|c| c.items.len())
+                        .unwrap_or(1)
+                        .max(1);
                     let c = self.completion.as_mut().unwrap();
                     c.selected = (c.selected + len - 1) % len;
                     self.completion_scroll_to_selection();
@@ -6044,7 +6060,10 @@ impl App {
         let Some(c) = &mut self.completion else {
             return;
         };
-        let visible = c.items.len().clamp(1, crate::canvas::editor::COMPLETION_ROWS);
+        let visible = c
+            .items
+            .len()
+            .clamp(1, crate::canvas::editor::COMPLETION_ROWS);
         if c.items.is_empty() || c.selected < c.first_row {
             c.first_row = c.selected;
         } else if c.selected >= c.first_row + visible {
@@ -6100,7 +6119,8 @@ impl App {
             return false;
         }
         let idx = self.cur().highlights.partition_point(|t| t.end < b);
-        self.cur().highlights
+        self.cur()
+            .highlights
             .get(idx)
             .map(|t| {
                 t.start < b
@@ -6272,8 +6292,6 @@ impl App {
             Action::GotoDefinition => self.goto_definition(None),
         }
     }
-
-
 
     /// Span of a word's definition: table by name or alias, then enum —
     /// the same lookup order as the hover docs.
@@ -6487,7 +6505,10 @@ impl App {
         self.editor_mut().record_jump();
         let pos = self.editor_mut().buf.pos();
         let rows = self.editor_mut().buf.line_count() as i32;
-        let base = self.cur().scroll_target.unwrap_or(self.cur().editor_scroll.round());
+        let base = self
+            .cur()
+            .scroll_target
+            .unwrap_or(self.cur().editor_scroll.round());
         let to = (base + lines).round().clamp(0.0, self.max_scroll());
         // static scroll: the cursor keeps its screen line
         let mut cursor_to = pos.row as f32 + lines;
@@ -6609,8 +6630,17 @@ impl App {
         let pane_w = (self.window_size.0 - self.seam_x()).max(220.0);
         let (max_x, max_y) = if self.export_menu_open {
             (
-                pane_w / 2.0 + if self.export_menu_sql_open { 174.0 } else { 56.0 },
-                if self.export_menu_sql_open { 240.0 } else { 128.0 },
+                pane_w / 2.0
+                    + if self.export_menu_sql_open {
+                        174.0
+                    } else {
+                        56.0
+                    },
+                if self.export_menu_sql_open {
+                    240.0
+                } else {
+                    128.0
+                },
             )
         } else {
             // closed: the trigger slot only
@@ -6719,15 +6749,30 @@ mod tests {
             "the bare o opened a line (the damage the salvage undoes)"
         );
         app.key_pressed(KeyCode::Char('o'), KeyModifiers::CONTROL);
-        assert_eq!(app.editor().buf.line_count(), 2, "the twin's salvage undid it");
-        assert_eq!(app.editor().buf.pos().row, 1, "jump_back went to the G origin");
+        assert_eq!(
+            app.editor().buf.line_count(),
+            2,
+            "the twin's salvage undid it"
+        );
+        assert_eq!(
+            app.editor().buf.pos().row,
+            1,
+            "jump_back went to the G origin"
+        );
 
         // ctrl+i: back to the position push recorded at jump_back — the
         // REAL pre-`o` spot, never the line-end ghost
         app.key_pressed(KeyCode::Char('i'), KeyModifiers::CONTROL);
         let (r, c) = app.editor().buf.cursor();
-        assert_eq!((r, c), (0, 0), "ctrl+i returns to gg's landing, not the ghost");
-        assert_ne!(ghost_col, 0, "the anchor line is long enough to catch a regression");
+        assert_eq!(
+            (r, c),
+            (0, 0),
+            "ctrl+i returns to gg's landing, not the ghost"
+        );
+        assert_ne!(
+            ghost_col, 0,
+            "the anchor line is long enough to catch a regression"
+        );
     }
 
     /// Regular mode's Down/Right at EOF park on the unnumbered
@@ -6745,10 +6790,16 @@ mod tests {
             .buf
             .move_cursor(editor::buffer::Move::Jump(1, 1));
 
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Down, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Down, KeyModifiers::NONE),
+        );
         assert_eq!(app.editor().buf.pos().row, 1, "Down stays on the last line");
 
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Right, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Right, KeyModifiers::NONE),
+        );
         assert_eq!(
             app.editor().buf.pos(),
             editor::buffer::Pos { row: 1, col: 1 },
@@ -6759,7 +6810,12 @@ mod tests {
 
     /// Screen point of a table box corner plus an offset.
     fn over_box(app: &App, title: &str, dx: f32, dy: f32) -> Point {
-        let b = app.diagram().boxes.iter().find(|b| b.title == title).unwrap();
+        let b = app
+            .diagram()
+            .boxes
+            .iter()
+            .find(|b| b.title == title)
+            .unwrap();
         crate::canvas::diagram::to_px(b.x, b.y, app.cur().zoom, app.cur().pan) + Vector::new(dx, dy)
     }
 
@@ -6808,22 +6864,43 @@ mod tests {
             .join("");
         let mut app = App::with_source(src);
         // press t5: it moves to the end of the raise list
-        let b = app.diagram().boxes.iter().find(|b| b.title == "t5").unwrap();
+        let b = app
+            .diagram()
+            .boxes
+            .iter()
+            .find(|b| b.title == "t5")
+            .unwrap();
         let s = crate::canvas::diagram::cell_size(app.cur().zoom);
         let tl = crate::canvas::diagram::to_px(b.x, b.y, app.cur().zoom, app.cur().pan);
-        let _ = update(&mut app, Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)));
-        let z = &app.cur().item_z;
-        assert_eq!(
-            z.last(),
-            Some(&RaisedItem::Table("t5".into())),
-            "{z:?}"
+        let _ = update(
+            &mut app,
+            Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)),
         );
-        assert_eq!(z.iter().filter(|r| **r == RaisedItem::Table("t5".into())).count(), 1, "no duplicates: {z:?}");
+        let z = &app.cur().item_z;
+        assert_eq!(z.last(), Some(&RaisedItem::Table("t5".into())), "{z:?}");
+        assert_eq!(
+            z.iter()
+                .filter(|r| **r == RaisedItem::Table("t5".into()))
+                .count(),
+            1,
+            "no duplicates: {z:?}"
+        );
         // a second grab of another table re-raises it above
-        let b = app.diagram().boxes.iter().find(|b| b.title == "t2").unwrap();
+        let b = app
+            .diagram()
+            .boxes
+            .iter()
+            .find(|b| b.title == "t2")
+            .unwrap();
         let tl = crate::canvas::diagram::to_px(b.x, b.y, app.cur().zoom, app.cur().pan);
-        let _ = update(&mut app, Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)));
-        assert_eq!(app.cur().item_z.last(), Some(&RaisedItem::Table("t2".into())));
+        let _ = update(
+            &mut app,
+            Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)),
+        );
+        assert_eq!(
+            app.cur().item_z.last(),
+            Some(&RaisedItem::Table("t2".into()))
+        );
         assert_eq!(app.cur().item_z.len(), 2, "one entry per raised table");
     }
 
@@ -6842,10 +6919,21 @@ mod tests {
         let pan = app.cur().pan;
         let s = crate::canvas::diagram::cell_size(zoom);
         // raise follows first: it now outranks the untouched users
-        let f = app.diagram().boxes.iter().find(|b| b.title == "follows").unwrap();
+        let f = app
+            .diagram()
+            .boxes
+            .iter()
+            .find(|b| b.title == "follows")
+            .unwrap();
         let tl = crate::canvas::diagram::to_px(f.x, f.y, zoom, pan);
-        let _ = update(&mut app, Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)));
-        let _ = update(&mut app, Message::CanvasReleased(Point::new(tl.x + s.width, tl.y + s.height * 0.5)));
+        let _ = update(
+            &mut app,
+            Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)),
+        );
+        let _ = update(
+            &mut app,
+            Message::CanvasReleased(Point::new(tl.x + s.width, tl.y + s.height * 0.5)),
+        );
         assert_eq!(app.cur().item_z, vec![RaisedItem::Table("follows".into())]);
         // grab the group's header band: users jumps ABOVE follows in the
         // raise order, and the group enters its own tier
@@ -6853,7 +6941,10 @@ mod tests {
         let tl = crate::canvas::diagram::to_px(g.rect.0, g.rect.1, zoom, pan);
         let band_pt = Point::new(tl.x + 5.0, tl.y + 10.0);
         let _ = update(&mut app, Message::CanvasPressed(band_pt));
-        assert!(matches!(app.drag, Drag::Group { .. }), "band press = group drag");
+        assert!(
+            matches!(app.drag, Drag::Group { .. }),
+            "band press = group drag"
+        );
         assert_eq!(app.cur().group_z, vec!["UsersGroup".to_string()]);
         assert_eq!(
             app.cur().item_z,
@@ -6868,18 +6959,14 @@ mod tests {
         let _ = update(&mut app, Message::CanvasMoved(to));
         let _ = update(&mut app, Message::CanvasReleased(to));
         assert!(matches!(app.drag, Drag::None));
-        let titles: Vec<&str> = crate::canvas::diagram::paint_items(
-            &app.cur().diagram,
-            &app.cur().item_z,
-            None,
-            None,
-        )
-        .iter()
-        .filter_map(|item| match item {
-            crate::canvas::diagram::PaintItem::Table(b) => Some(b.title.as_str()),
-            _ => None,
-        })
-        .collect();
+        let titles: Vec<&str> =
+            crate::canvas::diagram::paint_items(&app.cur().diagram, &app.cur().item_z, None, None)
+                .iter()
+                .filter_map(|item| match item {
+                    crate::canvas::diagram::PaintItem::Table(b) => Some(b.title.as_str()),
+                    _ => None,
+                })
+                .collect();
         assert_eq!(
             titles.last(),
             Some(&"users"),
@@ -6899,14 +6986,28 @@ mod tests {
         let zoom = app.cur().zoom;
         let pan = app.cur().pan;
         let s = crate::canvas::diagram::cell_size(zoom);
-        let u = app.diagram().boxes.iter().find(|b| b.title == "users").unwrap();
+        let u = app
+            .diagram()
+            .boxes
+            .iter()
+            .find(|b| b.title == "users")
+            .unwrap();
         let tl = crate::canvas::diagram::to_px(u.x, u.y, zoom, pan);
-        let _ = update(&mut app, Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)));
-        let _ = update(&mut app, Message::CanvasReleased(Point::new(tl.x + s.width, tl.y + s.height * 0.5)));
+        let _ = update(
+            &mut app,
+            Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)),
+        );
+        let _ = update(
+            &mut app,
+            Message::CanvasReleased(Point::new(tl.x + s.width, tl.y + s.height * 0.5)),
+        );
         // grab the group band
         let g = &app.cur().diagram.groups[0];
         let tl = crate::canvas::diagram::to_px(g.rect.0, g.rect.1, zoom, pan);
-        let _ = update(&mut app, Message::CanvasPressed(Point::new(tl.x + 5.0, tl.y + 10.0)));
+        let _ = update(
+            &mut app,
+            Message::CanvasPressed(Point::new(tl.x + 5.0, tl.y + 10.0)),
+        );
         assert_eq!(
             app.cur().item_z,
             vec![
@@ -6928,7 +7029,10 @@ mod tests {
         let src = "Table a { id integer [pk] }\nTable b { user_id integer [ref: > a.id] }\n";
         let mut app = App::with_source(String::from(src));
         assert_eq!(app.cur().diagram.edges.len(), 1);
-        assert!(app.cur().diagram.edges[0].ref_index.is_none(), "inline edge");
+        assert!(
+            app.cur().diagram.edges[0].ref_index.is_none(),
+            "inline edge"
+        );
         let _ = update(&mut app, Message::EdgeColor(0, Some("#ff0000".into())));
         assert!(
             app.source()
@@ -6944,8 +7048,7 @@ mod tests {
         // the dark swatch is an EXPLICIT color now, not a removal
         let _ = update(&mut app, Message::EdgeColor(0, Some("#1f2128".into())));
         assert!(
-            app.source()
-                .contains("[ref: > a.id [color: #1f2128]]"),
+            app.source().contains("[ref: > a.id [color: #1f2128]]"),
             "{:?}",
             app.source()
         );
@@ -6963,20 +7066,33 @@ mod tests {
     /// first, prev past the first wraps to the last.
     #[test]
     fn find_bar_arrows_step_scroll_and_cycle() {
-        let src = String::from("x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nalpha\ny\ny\ny\ny\ny\ny\ny\ny\ny\ny\nalpha\n");
+        let src = String::from(
+            "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nalpha\ny\ny\ny\ny\ny\ny\ny\ny\ny\ny\nalpha\n",
+        );
         let mut app = App::with_source(src);
         // a short page: the second match starts off screen
         app.window_size = (400.0, 300.0);
         let _ = update(&mut app, Message::FindToggle);
         for c in "alpha".chars() {
-            let _ = update(&mut app, Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE));
+            let _ = update(
+                &mut app,
+                Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE),
+            );
         }
-        assert_eq!(app.editor().buf.cursor(), (12, 0), "live search rides the first match");
+        assert_eq!(
+            app.editor().buf.cursor(),
+            (12, 0),
+            "live search rides the first match"
+        );
         let scroll_live = app.cur().editor_scroll;
 
         // next: row 23 — the caret moves AND the view follows it
         let _ = update(&mut app, Message::FindNext);
-        assert_eq!(app.editor().buf.cursor(), (23, 0), "the arrow stepped to the next match");
+        assert_eq!(
+            app.editor().buf.cursor(),
+            (23, 0),
+            "the arrow stepped to the next match"
+        );
         assert!(
             app.cur().editor_scroll > scroll_live,
             "the view followed the caret down"
@@ -6984,14 +7100,29 @@ mod tests {
 
         // next past the last: wraps to the FIRST result
         let _ = update(&mut app, Message::FindNext);
-        assert_eq!(app.editor().buf.cursor(), (12, 0), "next cycles back to the first");
+        assert_eq!(
+            app.editor().buf.cursor(),
+            (12, 0),
+            "next cycles back to the first"
+        );
         // prev past the first: wraps to the last
         let _ = update(&mut app, Message::FindPrev);
-        assert_eq!(app.editor().buf.cursor(), (23, 0), "prev cycles to the last");
+        assert_eq!(
+            app.editor().buf.cursor(),
+            (23, 0),
+            "prev cycles to the last"
+        );
 
         // Enter drives the same engine: next from the caret
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Enter, KeyModifiers::NONE));
-        assert_eq!(app.editor().buf.cursor(), (12, 0), "Enter wraps to the first again");
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Enter, KeyModifiers::NONE),
+        );
+        assert_eq!(
+            app.editor().buf.cursor(),
+            (12, 0),
+            "Enter wraps to the first again"
+        );
     }
 
     /// Hover chrome respects the raise order: a sticky parked over a
@@ -7008,7 +7139,9 @@ mod tests {
             let mut t = app.source().to_string();
             let _ = &mut t;
             app.cur_mut().table_pos.insert("a".to_string(), (10, 5));
-            app.cur_mut().note_pos.insert("n".to_string(), (12, 6, 14, 5));
+            app.cur_mut()
+                .note_pos
+                .insert("n".to_string(), (12, 6, 14, 5));
             app.source().to_string()
         };
         app.cur_mut().set_source(&src_pinned);
@@ -7071,16 +7204,24 @@ mod tests {
     /// caret jumps to the next match AND the view follows it.
     #[test]
     fn find_bar_enter_steps_and_the_view_follows() {
-        let src = String::from("x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nalpha\ny\ny\ny\ny\ny\ny\ny\ny\ny\ny\nalpha\n");
+        let src = String::from(
+            "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nalpha\ny\ny\ny\ny\ny\ny\ny\ny\ny\ny\nalpha\n",
+        );
         let mut app = App::with_source(src);
         app.window_size = (400.0, 300.0);
         let _ = update(&mut app, Message::FindToggle);
         for c in "alpha".chars() {
-            let _ = update(&mut app, Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE));
+            let _ = update(
+                &mut app,
+                Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE),
+            );
         }
         assert_eq!(app.editor().buf.cursor(), (12, 0));
         let scroll_live = app.cur().editor_scroll;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Enter, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Enter, KeyModifiers::NONE),
+        );
         assert_eq!(
             app.editor().buf.cursor(),
             (23, 0),
@@ -7164,8 +7305,8 @@ mod tests {
             "the card region is gone with the menu closed"
         );
         let cur = app.cur();
-        let on_a_row = crate::canvas::diagram::row_at(&cur.diagram, cur.zoom, cur.pan, in_region)
-            .is_some();
+        let on_a_row =
+            crate::canvas::diagram::row_at(&cur.diagram, cur.zoom, cur.pan, in_region).is_some();
         assert!(
             !app.cur().hover_edges.is_empty() || on_a_row,
             "the same point lights the diagram once the menu is closed"
@@ -7202,16 +7343,25 @@ mod tests {
         app.clipboard = Some(Box::new(FakeClipboard::with_text("P")));
         let _ = update(&mut app, Message::FindToggle);
         for c in "needle".chars() {
-            let _ = update(&mut app, Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE));
+            let _ = update(
+                &mut app,
+                Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE),
+            );
         }
         // ctrl+a: the whole query selected; typing replaces it
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL),
+        );
         assert_eq!(
             app.editor().find_selection_text().as_deref(),
             Some("needle"),
             "ctrl+a selects the whole query"
         );
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::NONE),
+        );
         let f = app.editor().find.as_ref().unwrap();
         assert_eq!(f.input, "x");
         assert_eq!(f.caret, 1);
@@ -7219,21 +7369,36 @@ mod tests {
 
         // type it back, then the clipboard round trip
         for c in "hello world".chars() {
-            let _ = update(&mut app, Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE));
+            let _ = update(
+                &mut app,
+                Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE),
+            );
         }
         // the query is "xhello world" (the 'x' from the replace above)
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('c'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('c'), KeyModifiers::CONTROL),
+        );
         assert_eq!(
             app.clipboard_text().as_deref(),
             Some("xhello world"),
             "ctrl+c copied the whole query"
         );
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::CONTROL),
+        );
         let f = app.editor().find.as_ref().unwrap();
         assert_eq!(f.input, "", "ctrl+x cut the query");
         assert_eq!(f.caret, 0);
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('v'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('v'), KeyModifiers::CONTROL),
+        );
         let f = app.editor().find.as_ref().unwrap();
         assert_eq!(f.input, "xhello world", "ctrl+v pasted");
         assert_eq!(f.caret, 12);
@@ -7244,30 +7409,45 @@ mod tests {
         let mut app = App::with_source("Table a { id int }".into());
         let _ = update(&mut app, Message::FindToggle);
         for c in "one two".chars() {
-            let _ = update(&mut app, Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE));
+            let _ = update(
+                &mut app,
+                Message::KeyPressed(KeyCode::Char(c), KeyModifiers::NONE),
+            );
         }
         // plain Left moves the caret without a selection
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Left, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Left, KeyModifiers::NONE),
+        );
         let f = app.editor().find.as_ref().unwrap();
         assert_eq!(f.caret, 6);
         assert!(f.anchor.is_none());
         // alt+arrows are INERT: no move, no selection change (the
         // user's contract — alt was never a find-field binding)
         let caret_before = app.editor().find.as_ref().unwrap().caret;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Right, KeyModifiers::ALT));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Left, KeyModifiers::ALT));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Right, KeyModifiers::ALT),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Left, KeyModifiers::ALT),
+        );
         let f = app.editor().find.as_ref().unwrap();
         assert_eq!(f.caret, caret_before, "alt+arrows move nothing");
         assert!(f.anchor.is_none(), "alt+arrows select nothing");
 
         // ONE physical shift+right arrives as a DE echo pair: the twin
         // is dropped, so the selection grows one char per press — not two
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: "echo".into(),
-            code: KeyCode::Right,
-            mods: KeyModifiers::SHIFT,
-            stripped: false,
-        });
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: "echo".into(),
+                code: KeyCode::Right,
+                mods: KeyModifiers::SHIFT,
+                stripped: false,
+            },
+        );
         let f = app.editor().find.as_ref().unwrap();
         assert_eq!(
             &f.input[f.caret - 1..f.caret],
@@ -7275,12 +7455,15 @@ mod tests {
             "the first press selected one char"
         );
         let sel_start = f.caret - 1;
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: "echo twin".into(),
-            code: KeyCode::Right,
-            mods: KeyModifiers::SHIFT,
-            stripped: false,
-        });
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: "echo twin".into(),
+                code: KeyCode::Right,
+                mods: KeyModifiers::SHIFT,
+                stripped: false,
+            },
+        );
         let f = app.editor().find.as_ref().unwrap();
         assert_eq!(f.caret, sel_start + 1, "the twin echo was dropped");
         assert_eq!(
@@ -7289,22 +7472,31 @@ mod tests {
             "the selection stayed one char"
         );
         // ctrl+a + Left collapses the selection to the start
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Left, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Left, KeyModifiers::NONE),
+        );
         let f = app.editor().find.as_ref().unwrap();
         assert_eq!(f.caret, 0);
         // shift+right selects by char
-        let _ = update(&mut app, Message::KeyPressed(
-            KeyCode::Right,
-            KeyModifiers::SHIFT,
-        ));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Right, KeyModifiers::SHIFT),
+        );
         assert_eq!(
             app.editor().find_selection_text().as_deref(),
             Some("o"),
             "shift+right selects one char"
         );
         // backspace empties the SELECTION, not the last char
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Backspace, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Backspace, KeyModifiers::NONE),
+        );
         let f = app.editor().find.as_ref().unwrap();
         assert_eq!(f.input, "ne two", "backspace removed the selection");
     }
@@ -7351,13 +7543,21 @@ mod tests {
     /// Relationships toggle is a click state and survives the leave.
     #[test]
     fn leaving_the_diagram_drops_every_hover() {
-        let src = String::from("Table a { id integer [pk] }\nTable b { a_id integer }\nRef: a.id > b.a_id\n");
+        let src = String::from(
+            "Table a { id integer [pk] }\nTable b { a_id integer }\nRef: a.id > b.a_id\n",
+        );
         let mut app = App::with_source(src);
         let (zoom, pan) = (app.cur().zoom, app.cur().pan);
 
         // hover a column row of a: its relationship lights + the field
         // card's identity arms
-        let a = app.cur().diagram.boxes.iter().find(|b| b.title == "a").unwrap();
+        let a = app
+            .cur()
+            .diagram
+            .boxes
+            .iter()
+            .find(|b| b.title == "a")
+            .unwrap();
         let s = crate::canvas::diagram::cell_size(zoom);
         let tl = crate::canvas::diagram::to_px(a.x, a.y, zoom, pan);
         let over_row = Point::new(tl.x + 2.0 * s.width, tl.y + 1.5 * s.height);
@@ -7401,10 +7601,19 @@ mod tests {
             .map(|r| r.pts.clone())
             .collect();
         // drag c onto the lane between a and b
-        let c = app.cur().diagram.boxes.iter().find(|b| b.title == "c").unwrap();
+        let c = app
+            .cur()
+            .diagram
+            .boxes
+            .iter()
+            .find(|b| b.title == "c")
+            .unwrap();
         let s = crate::canvas::diagram::cell_size(app.cur().zoom);
         let tl = crate::canvas::diagram::to_px(c.x, c.y, app.cur().zoom, app.cur().pan);
-        let _ = update(&mut app, Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)));
+        let _ = update(
+            &mut app,
+            Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)),
+        );
         let mid = Point::new(tl.x + 3.0 * s.width, tl.y - 1.5 * s.height);
         for _ in 0..4 {
             let _ = update(&mut app, Message::CanvasMoved(mid));
@@ -7422,7 +7631,9 @@ mod tests {
 
     #[test]
     fn dragging_a_connected_table_reroutes_its_lines() {
-        let src = String::from("Table a { id integer [pk] }\nTable b { a_id integer }\nRef: b.a_id > a.id\n");
+        let src = String::from(
+            "Table a { id integer [pk] }\nTable b { a_id integer }\nRef: b.a_id > a.id\n",
+        );
         let mut app = App::with_source(src);
         let before: Vec<_> = app
             .cur()
@@ -7432,10 +7643,19 @@ mod tests {
             .map(|r| r.pts.clone())
             .collect();
         // drag b (whose fk side anchors the line) downward: the line follows
-        let b = app.cur().diagram.boxes.iter().find(|b| b.title == "b").unwrap();
+        let b = app
+            .cur()
+            .diagram
+            .boxes
+            .iter()
+            .find(|b| b.title == "b")
+            .unwrap();
         let s = crate::canvas::diagram::cell_size(app.cur().zoom);
         let tl = crate::canvas::diagram::to_px(b.x, b.y, app.cur().zoom, app.cur().pan);
-        let _ = update(&mut app, Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)));
+        let _ = update(
+            &mut app,
+            Message::CanvasPressed(Point::new(tl.x + s.width, tl.y + s.height * 0.5)),
+        );
         let down = Point::new(tl.x + s.width, tl.y + 3.0 * s.height);
         let _ = update(&mut app, Message::CanvasMoved(down));
         let _ = update(&mut app, Message::CanvasReleased(down));
@@ -7446,7 +7666,10 @@ mod tests {
             .iter()
             .map(|r| r.pts.clone())
             .collect();
-        assert_ne!(before, after, "the connected table's line followed the drag");
+        assert_ne!(
+            before, after,
+            "the connected table's line followed the drag"
+        );
     }
 
     #[test]
@@ -7555,7 +7778,10 @@ mod tests {
         }
         let glyph = glyph_at.expect("test premise: the palette glyph is on the header");
         let _ = update(&mut app, Message::CanvasPressed(glyph));
-        assert!(app.table_header_menu.is_some(), "the glyph opens the picker");
+        assert!(
+            app.table_header_menu.is_some(),
+            "the glyph opens the picker"
+        );
         let _ = update(&mut app, Message::CanvasReleased(glyph));
         // the NEXT press — on the header, away from the glyph — closes
         // the picker and grabs the table in the same mousedown
@@ -7597,7 +7823,10 @@ mod tests {
             let g = &app.cur().diagram.groups[0];
             let s = dia::cell_size(app.cur().zoom);
             let tl = dia::to_px(g.rect.0, g.rect.1, app.cur().zoom, app.cur().pan);
-            Point::new(tl.x + g.rect.2 as f32 * s.width * 0.5, tl.y + s.height * 0.5)
+            Point::new(
+                tl.x + g.rect.2 as f32 * s.width * 0.5,
+                tl.y + s.height * 0.5,
+            )
         };
         let _ = update(&mut app, Message::CanvasPressed(band_center));
         assert!(
@@ -7611,10 +7840,7 @@ mod tests {
         // premise: the band now covers the line somewhere over open space
         let (g, s) = {
             let d = &app.cur().diagram;
-            (
-                d.groups[0].clone(),
-                dia::cell_size(app.cur().zoom),
-            )
+            (d.groups[0].clone(), dia::cell_size(app.cur().zoom))
         };
         let tl = dia::to_px(g.rect.0, g.rect.1, app.cur().zoom, app.cur().pan);
         let band_y = tl.y + 0.5 * s.height;
@@ -7667,7 +7893,9 @@ mod tests {
     fn auto_arrange_fills_table_pos_and_relayouts() {
         let mut app = app();
         // a stale dragged position and stale highlight state get replaced
-        app.cur_mut().table_pos.insert("users".to_string(), (500, 500));
+        app.cur_mut()
+            .table_pos
+            .insert("users".to_string(), (500, 500));
         app.cur_mut().edge_anim = vec![0.5; app.diagram().edges.len()];
         app.cur_mut().hover_edges.push(0);
         let _ = update(&mut app, Message::AutoArrange);
@@ -7732,8 +7960,7 @@ TableGroup g { a\n                   c }
         let b = app.diagram().boxes.iter().find(|b| b.title == "b").unwrap();
         for g in &app.diagram().groups {
             let (gx, gy, gw, gh) = g.rect;
-            let overlap =
-                b.x < gx + gw && gx < b.right() && b.y < gy + gh && gy < b.bottom();
+            let overlap = b.x < gx + gw && gx < b.right() && b.y < gy + gh && gy < b.bottom();
             assert!(
                 !overlap,
                 "free table b at ({}, {}) {}x{} sits under group {} at {:?}",
@@ -7752,7 +7979,10 @@ TableGroup g { a\n                   c }
         let tmp = std::env::temp_dir().join("dbml_ui_ttl.svg");
         let _ = update(
             &mut app,
-            Message::ExportTo(crate::app::ExportKind::Svg, tmp.to_string_lossy().into_owned()),
+            Message::ExportTo(
+                crate::app::ExportKind::Svg,
+                tmp.to_string_lossy().into_owned(),
+            ),
         );
         assert!(app.message.is_some());
         // ticks inside the TTL leave the toast up
@@ -7775,7 +8005,10 @@ TableGroup g { a\n                   c }
         let tmp = std::env::temp_dir().join("dbml_ui_supersede.svg");
         let _ = update(
             &mut app,
-            Message::ExportTo(crate::app::ExportKind::Svg, tmp.to_string_lossy().into_owned()),
+            Message::ExportTo(
+                crate::app::ExportKind::Svg,
+                tmp.to_string_lossy().into_owned(),
+            ),
         );
         assert!(app.message.is_some());
         let _ = update(
@@ -8023,13 +8256,14 @@ Ref: posts.user_id > users.id
     /// The records affordance point: the rows glyph LEFT of the color
     /// wheel's fixed rightmost slot (the band the painter + hit test share).
     fn records_icon_point(app: &App, title: &str) -> Point {
-        let b = app.diagram().boxes.iter().find(|b| b.title == title).unwrap();
-        let (x0, x1) = crate::canvas::diagram::records_band(
-            b,
-            app.cur().zoom,
-            app.cur().pan,
-        )
-        .expect("the fixture table carries records");
+        let b = app
+            .diagram()
+            .boxes
+            .iter()
+            .find(|b| b.title == title)
+            .unwrap();
+        let (x0, x1) = crate::canvas::diagram::records_band(b, app.cur().zoom, app.cur().pan)
+            .expect("the fixture table carries records");
         let tl = crate::canvas::diagram::to_px(b.x, b.y, app.cur().zoom, app.cur().pan);
         let s = crate::canvas::diagram::cell_size(app.cur().zoom);
         Point::new((x0 + x1) / 2.0, tl.y + s.height * 0.5)
@@ -8051,7 +8285,12 @@ Ref: posts.user_id > users.id
         let _ = update(&mut app, Message::CanvasReleased(p));
         assert_eq!(app.pending_jump, None);
         // and the generic table press still drags as before
-        let b = app.diagram().boxes.iter().find(|b| b.title == "users").unwrap();
+        let b = app
+            .diagram()
+            .boxes
+            .iter()
+            .find(|b| b.title == "users")
+            .unwrap();
         let s = crate::canvas::diagram::cell_size(app.cur().zoom);
         let tl = crate::canvas::diagram::to_px(b.x, b.y, app.cur().zoom, app.cur().pan);
         // inside the body (the box is header + rows exactly now)
@@ -8085,13 +8324,15 @@ Ref: posts.user_id > users.id
     fn record_view_is_modal_and_escape_closes_it() {
         // config writes (open/save flows persist recents) must serialize
         // with the other config-touching tests
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let mut app = recordsapp();
         let users = node_of(&app, "users");
         let _ = update(&mut app, Message::OpenRecords(users));
         // Escape closes
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE),
+        );
         assert!(app.record_view.is_none());
         // while open, other keys are swallowed (no editing underneath)
         let _ = update(&mut app, Message::OpenRecords(users));
@@ -8113,10 +8354,8 @@ mod file_watch_tests {
     struct TempDir(std::path::PathBuf);
     impl TempDir {
         fn new(tag: &str) -> Self {
-            let dir = std::env::temp_dir().join(format!(
-                "dbml-ui-watch-{}-{tag}",
-                std::process::id()
-            ));
+            let dir =
+                std::env::temp_dir().join(format!("dbml-ui-watch-{}-{tag}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::create_dir_all(&dir).unwrap();
             Self(dir)
@@ -8163,8 +8402,11 @@ mod file_watch_tests {
         app.editor_mut().buf.insert_str("  x integer\n");
         let mine = app.source().to_string();
 
-        std::fs::write(&path, "Table t {\n  id integer [pk]\n  from_disk integer\n}\n")
-            .unwrap();
+        std::fs::write(
+            &path,
+            "Table t {\n  id integer [pk]\n  from_disk integer\n}\n",
+        )
+        .unwrap();
         let _ = update(&mut app, Message::PollFiles);
         assert!(matches!(app.cur().liveness, FileLiveness::Conflict { .. }));
         assert!(app.cur().is_modified());
@@ -8193,7 +8435,10 @@ mod file_watch_tests {
         let mut app = open_at(&path);
         std::fs::remove_file(&path).unwrap();
         let _ = update(&mut app, Message::PollFiles);
-        assert!(matches!(app.cur().liveness, FileLiveness::DeletedOnDisk { .. }));
+        assert!(matches!(
+            app.cur().liveness,
+            FileLiveness::DeletedOnDisk { .. }
+        ));
         assert!(app.source().contains("Table t"), "the buffer survives");
 
         let _ = update(&mut app, Message::FileRecreate);
@@ -8224,7 +8469,10 @@ mod file_watch_tests {
         app.editor_mut().buf.insert_str("  x integer\n");
         std::fs::rename(&from, &to).unwrap();
         let _ = update(&mut app, Message::PollFiles);
-        assert!(matches!(app.cur().liveness, FileLiveness::MovedOnDisk { .. }));
+        assert!(matches!(
+            app.cur().liveness,
+            FileLiveness::MovedOnDisk { .. }
+        ));
         let _ = update(&mut app, Message::FileFollow);
         assert!(matches!(app.cur().liveness, FileLiveness::InSync));
         assert_eq!(app.cur().file.as_deref(), Some(to.as_path()));
@@ -8236,8 +8484,7 @@ mod file_watch_tests {
         // save_file writes the whole config (recent list) to DBML_UI_CONFIG
         // — serialize with the other config-touching tests or a parallel
         // save flips another test's file mid-assert
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = TempDir::new("selfwrite");
         let path = dir.path("a.dbml");
         // messy on purpose: the fmt-on-save formatter rewrites the buffer
@@ -8259,8 +8506,7 @@ mod file_watch_tests {
         // every UI path to open_file starts from the splash screen, so an
         // open REPLACES the blank/start tab — there is no unsaved-edit
         // guard to hit
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = TempDir::new("clobber");
         let b = dir.path("b.dbml");
         std::fs::write(&b, "Table b {\n  id integer [pk]\n}\n").unwrap();
@@ -8278,10 +8524,8 @@ mod diag_starve_tests {
     struct TempDir(std::path::PathBuf);
     impl TempDir {
         fn new(tag: &str) -> Self {
-            let dir = std::env::temp_dir().join(format!(
-                "dbml-ui-diag-{}-{tag}",
-                std::process::id()
-            ));
+            let dir =
+                std::env::temp_dir().join(format!("dbml-ui-diag-{}-{tag}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::create_dir_all(&dir).unwrap();
             Self(dir)
@@ -8328,7 +8572,11 @@ mod diag_starve_tests {
         let a = dir.path("a.dbml");
         let b = dir.path("b.dbml");
         std::fs::write(&a, "Table users {\n  id integer [not null\n}\n").unwrap();
-        std::fs::write(&b, "Table posts {\n  id int\n}\nRef: posts.nope > posts.id\n").unwrap();
+        std::fs::write(
+            &b,
+            "Table posts {\n  id int\n}\nRef: posts.nope > posts.id\n",
+        )
+        .unwrap();
         let s = crate::session::Session {
             active: 0,
             split: 0.5,
@@ -8379,8 +8627,7 @@ mod file_tests {
         // save_file writes the whole config (recent list) to DBML_UI_CONFIG
         // — serialize with the other config-touching tests or a parallel
         // save flips another test's file mid-assert
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("dbml-ui-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("a.dbml");
@@ -8409,10 +8656,12 @@ mod file_tests {
 
         app.save_file(None).unwrap();
         assert!(!app.cur().is_modified());
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), app.editor_mut().text());
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            app.editor_mut().text()
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
-
 }
 
 #[cfg(test)]
@@ -8454,7 +8703,10 @@ mod completion_tests {
                 stripped: true,
             },
         );
-        assert!(app.completion.is_some(), "the stripped copy opens the popup");
+        assert!(
+            app.completion.is_some(),
+            "the stripped copy opens the popup"
+        );
         assert_eq!(app.source(), before, "nothing typed");
         // the flagged twin: dropped, not a second toggle nor a space
         let _ = update(
@@ -8466,16 +8718,20 @@ mod completion_tests {
                 stripped: false,
             },
         );
-        assert!(app.completion.is_some(), "the twin did not toggle the popup");
+        assert!(
+            app.completion.is_some(),
+            "the twin did not toggle the popup"
+        );
         assert_eq!(app.source(), before, "the twin typed nothing");
     }
 
-
-            #[test]
+    #[test]
     fn popup_window_scrolls_only_past_the_edges() {
         // the selection works its way DOWN to the bottom row of the
         // visible menu first; the window only follows after
-        let mut app = super::vim(App::with_source("Table users {\n  id integer [pk]\n}\n".into()));
+        let mut app = super::vim(App::with_source(
+            "Table users {\n  id integer [pk]\n}\n".into(),
+        ));
         app.editor_mut().mode = editor::Mode::Insert;
         app.toggle_completion();
         let c = app.completion.as_mut().unwrap();
@@ -8487,31 +8743,52 @@ mod completion_tests {
             .collect();
         let visible = crate::canvas::editor::COMPLETION_ROWS; // 8
         for _ in 0..visible - 1 {
-            let _ = update(&mut app, Message::KeyPressed(KeyCode::Down, KeyModifiers::NONE));
+            let _ = update(
+                &mut app,
+                Message::KeyPressed(KeyCode::Down, KeyModifiers::NONE),
+            );
         }
         // walked to the last visible row WITHOUT the window moving
         assert_eq!(app.completion.as_ref().unwrap().selected, visible - 1);
         assert_eq!(app.completion.as_ref().unwrap().first_row, 0);
         // one more: now the window scrolls, selection pinned at the bottom
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Down, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Down, KeyModifiers::NONE),
+        );
         let c = app.completion.as_ref().unwrap();
         assert_eq!(c.selected, visible);
         assert_eq!(c.first_row, 1);
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Down, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Down, KeyModifiers::NONE),
+        );
         let c = app.completion.as_ref().unwrap();
         assert_eq!(c.selected, visible + 1);
         assert_eq!(c.first_row, 2);
 
         // and the mirror: walking UP pins at the top row, then scrolls
         for _ in 0..6 {
-            let _ = update(&mut app, Message::KeyPressed(KeyCode::Up, KeyModifiers::NONE));
+            let _ = update(
+                &mut app,
+                Message::KeyPressed(KeyCode::Up, KeyModifiers::NONE),
+            );
         }
         let c = app.completion.as_ref().unwrap();
         assert_eq!(c.selected, 3);
         assert_eq!(c.first_row, 2, "still inside the window: no scroll");
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Up, KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Up, KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Up, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Up, KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Up, KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Up, KeyModifiers::NONE),
+        );
         let c = app.completion.as_ref().unwrap();
         assert_eq!(c.selected, 0);
         assert_eq!(c.first_row, 0);
@@ -8568,11 +8845,13 @@ mod completion_tests {
         }
     }
 
-#[test]
+    #[test]
     fn ctrl_n_cycles_and_never_reaches_save_as() {
         // Ctrl+N is completion cycling (a legacy Ctrl+N => save-dialog
         // intercept at the top of update() used to hijack it)
-        let mut app = super::vim(App::with_source("Table users {\n  id integer [pk]\n}\n".into()));
+        let mut app = super::vim(App::with_source(
+            "Table users {\n  id integer [pk]\n}\n".into(),
+        ));
         app.editor_mut().mode = editor::Mode::Insert;
         app.toggle_completion();
         assert!(app.completion.is_some());
@@ -8585,7 +8864,7 @@ mod completion_tests {
         assert_eq!(c.selected, (before + 1) % c.items.len().max(1));
     }
 
-#[test]
+    #[test]
     fn ctrl_space_opens_and_toggles() {
         let mut app = insertapp();
         let _ = update(&mut app, ctrl_space());
@@ -8635,7 +8914,9 @@ mod completion_tests {
 
     #[test]
     fn dot_completes_columns_and_accept() {
-        let mut app = super::vim(App::with_source("Table users { id integer [pk] }\nRef: users\n".into()));
+        let mut app = super::vim(App::with_source(
+            "Table users { id integer [pk] }\nRef: users\n".into(),
+        ));
         let _ = update(
             &mut app,
             Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
@@ -8643,7 +8924,9 @@ mod completion_tests {
         app.editor_mut()
             .buf
             .move_cursor(crate::editor::buffer::Move::Jump(1, 0));
-        app.editor_mut().buf.move_cursor(crate::editor::buffer::Move::End);
+        app.editor_mut()
+            .buf
+            .move_cursor(crate::editor::buffer::Move::End);
         let _ = update(
             &mut app,
             Message::KeyPressed(KeyCode::Char('.'), KeyModifiers::NONE),
@@ -8659,7 +8942,11 @@ mod completion_tests {
             &mut app,
             Message::KeyPressed(KeyCode::Enter, KeyModifiers::NONE),
         );
-        assert!(app.source().ends_with("Ref: users.id\n"), "{:?}", app.source());
+        assert!(
+            app.source().ends_with("Ref: users.id\n"),
+            "{:?}",
+            app.source()
+        );
     }
 
     #[test]
@@ -8678,14 +8965,20 @@ mod completion_tests {
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn regular_mode_types_and_selects() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
+
         // keep test writes out of the real config
-        std::env::set_var(
-            "DBML_UI_CONFIG",
-            std::env::temp_dir().join("dbml-ui-cfg-regular-test"),
-        );
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var(
+                "DBML_UI_CONFIG",
+                std::env::temp_dir().join("dbml-ui-cfg-regular-test"),
+            );
+        }
+
         let mut app = App {
             config: crate::config::Config {
                 vim: false,
@@ -8717,7 +9010,10 @@ mod completion_tests {
                 Message::KeyPressed(KeyCode::Left, KeyModifiers::SHIFT),
             );
         }
-        assert!(app.editor_mut().buf.selection_anchor().is_some(), "shift selects");
+        assert!(
+            app.editor_mut().buf.selection_anchor().is_some(),
+            "shift selects"
+        );
         let _ = update(&mut app, k('!'));
         assert!(app.source().ends_with("hel!"), "{}", app.source());
         // Esc clears the selection; Ctrl+C copies without quitting
@@ -8738,21 +9034,36 @@ mod completion_tests {
             Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE),
         );
         assert!(app.editor_mut().buf.selection_anchor().is_none());
-        std::env::remove_var("DBML_UI_CONFIG");
+
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+        }
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn toggle_vim_switches_and_persists() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("dbml-ui-tgl-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+        }
+
         let mut app = super::vim(App::default());
         assert!(!app.regular_mode(), "vim by default");
         let _ = update(&mut app, Message::VimMode(false));
         assert!(app.regular_mode());
-        assert_eq!(app.editor_mut().mode, editor::Mode::Normal, "vim state reset");
+        assert_eq!(
+            app.editor_mut().mode,
+            editor::Mode::Normal,
+            "vim state reset"
+        );
         // persisted
         assert!(!crate::config::Config::load().vim);
         // vim motions work again after switching back
@@ -8771,36 +9082,55 @@ mod completion_tests {
             Message::KeyPressed(KeyCode::Char('c'), KeyModifiers::CONTROL),
         );
         assert!(!app.should_quit, "ctrl+c never quits");
-        std::env::remove_var("DBML_UI_CONFIG");
+
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-
     #[test]
+    #[allow(unsafe_code)]
     fn the_import_toast_is_a_warning() {
         // the import succeeded but carries an obligation (Save As to keep
         // the DBML): the toast severity is WARNING, and the kind travels
         // with the message for the pill's accent
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("dbml-ui-imp-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
-        std::env::set_var("DBML_UI_SESSION", dir.join("session"));
+
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+            std::env::set_var("DBML_UI_SESSION", dir.join("session"));
+        }
+
         let dump = dir.join("schema.sql");
-        std::fs::write(&dump, "CREATE TABLE users (\n  id INTEGER PRIMARY KEY\n);\n").unwrap();
+        std::fs::write(
+            &dump,
+            "CREATE TABLE users (\n  id INTEGER PRIMARY KEY\n);\n",
+        )
+        .unwrap();
 
         let mut app = App::blank_start();
         app.open_file(dump.to_str().unwrap()).unwrap();
         assert_eq!(app.message_kind, crate::app::ToastKind::Warning);
 
-        std::env::remove_var("DBML_UI_CONFIG");
-        std::env::remove_var("DBML_UI_SESSION");
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+            std::env::remove_var("DBML_UI_SESSION");
+        }
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn sql_import_lands_in_an_untitled_buffer() {
         // the contract: a .sql import NEVER backs the buffer with the dump
         // file — ctrl-s must not overwrite the user's dump with DBML; Save
@@ -8809,8 +9139,15 @@ mod completion_tests {
         let dir = std::env::temp_dir().join(format!("dbml-ui-sql-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
-        std::env::set_var("DBML_UI_SESSION", dir.join("session"));
+
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+            std::env::set_var("DBML_UI_SESSION", dir.join("session"));
+        }
+
         let dump = dir.join("schema.sql");
         std::fs::write(
             &dump,
@@ -8831,19 +9168,29 @@ mod completion_tests {
         // the dump on disk is untouched
         assert_eq!(std::fs::read_to_string(&dump).unwrap(), before);
 
-        std::env::remove_var("DBML_UI_CONFIG");
-        std::env::remove_var("DBML_UI_SESSION");
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+            std::env::remove_var("DBML_UI_SESSION");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn open_file_records_recent() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("dbml-ui-recent-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+        }
+
         let path = dir.join("x.dbml");
         std::fs::write(&path, "Table t { id integer }").unwrap();
         let mut app = App::blank_start();
@@ -8861,17 +9208,28 @@ mod completion_tests {
             Message::OpenRecent(path.to_string_lossy().into_owned()),
         );
         assert_eq!(app.config.recent.len(), 1, "no duplicate entries");
-        std::env::remove_var("DBML_UI_CONFIG");
+
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn format_now_cleans_the_buffer() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("dbml-ui-fmt-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+        }
+
         let mut app = super::vim(App::default());
         let messy = "Table   users {\nid integer [pk,increment]\n}\n";
         app.editor_mut().set_text(messy);
@@ -8892,7 +9250,11 @@ mod completion_tests {
         assert_eq!(app.source(), messy, "single undo unit");
         // second format is a no-op ("already formatted")
         let _ = update(&mut app, Message::FormatNow);
-        std::env::remove_var("DBML_UI_CONFIG");
+
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -8924,7 +9286,9 @@ mod completion_tests {
         // messy indentation: formatting re-indents every column line
         let mut messy = String::new();
         for i in 0..40 {
-            messy.push_str(&format!("Table t{i} {{\nid integer [pk]\nc{i} integer\n}}\n\n"));
+            messy.push_str(&format!(
+                "Table t{i} {{\nid integer [pk]\nc{i} integer\n}}\n\n"
+            ));
         }
         app.editor_mut().set_text(&messy);
         app.cur_mut().set_source(&messy);
@@ -8979,8 +9343,7 @@ mod completion_tests {
         // racing a concurrent getenv corrupted this test ~30% of full
         // runs). The override is global, so the usual lock still
         // serializes with the other config tests.
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join("dbml-ui-fos-override");
         let _ = std::fs::remove_dir_all(&dir);
         crate::config::set_config_path_override(dir.join("config"));
@@ -8996,13 +9359,20 @@ mod completion_tests {
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn saving_formats_the_file() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("dbml-ui-fsv-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+        }
+
         let mut app = App::default();
         let messy = "Table   users {\nid integer [pk,increment]\n}\n";
         app.editor_mut().set_text(messy);
@@ -9021,7 +9391,12 @@ mod completion_tests {
         app.cur_mut().set_source(messy2);
         app.save_file(Some(path.to_str().unwrap())).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), messy2);
-        std::env::remove_var("DBML_UI_CONFIG");
+
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+        }
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -9042,20 +9417,31 @@ mod completion_tests {
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn open_file_opens_in_the_configured_mode() {
         let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("dbml-ui-mode-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("mode-test.dbml");
         std::fs::write(&path, "Table users { id integer [pk] }\n").unwrap();
-        std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_CONFIG", dir.join("config"));
+        }
 
         let mut app = App::blank_start();
         app.config.vim = true;
         app.open_file(path.to_str().unwrap()).unwrap();
         assert_eq!(app.editor().mode, editor::Mode::Normal);
 
-        std::env::remove_var("DBML_UI_CONFIG");
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_CONFIG");
+        }
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -9150,7 +9536,8 @@ mod completion_tests {
         app.follow_cursor_horizontal();
         assert!(app.cur().editor_hscroll > 0.0, "scrolled right");
         // the cursor cell is back inside the pane
-        let cursor_right = crate::canvas::editor::GUTTER + len as f32 * cw - app.cur().editor_hscroll;
+        let cursor_right =
+            crate::canvas::editor::GUTTER + len as f32 * cw - app.cur().editor_hscroll;
         assert!(
             cursor_right <= app.editor_pane_width() + 1.0,
             "{cursor_right} vs pane {}",
@@ -9226,8 +9613,10 @@ mod completion_tests {
         for i in 0..60 {
             body.push_str(&format!("  col{i} integer [not null]\n"));
         }
-        let mut app =
-            App::with_source(format!("Table users {{\n{body}}}\n-- {}\n", "x".repeat(200)));
+        let mut app = App::with_source(format!(
+            "Table users {{\n{body}}}\n-- {}\n",
+            "x".repeat(200)
+        ));
         app.window_size = (500.0, 900.0); // narrow pane under a 203-col line
         let max = app.max_hscroll();
         assert!(max > 0.0, "fixture needs horizontal overflow");
@@ -9235,7 +9624,13 @@ mod completion_tests {
 
         // a big two-finger pan right (app-space h > 0, in PX under the
         // unified contract) runs to the clamp
-        let _ = update(&mut app, Message::EditorScrolled { v: 0.0, h: max + 100.0 });
+        let _ = update(
+            &mut app,
+            Message::EditorScrolled {
+                v: 0.0,
+                h: max + 100.0,
+            },
+        );
         assert!(
             (app.cur().editor_hscroll - max).abs() < 0.01,
             "{} vs max {max}",
@@ -9245,13 +9640,27 @@ mod completion_tests {
         assert_eq!(app.cur().editor_scroll, scroll_before);
 
         // and panning back left clamps at the line start
-        let _ = update(&mut app, Message::EditorScrolled { v: 0.0, h: -10_000.0 });
+        let _ = update(
+            &mut app,
+            Message::EditorScrolled {
+                v: 0.0,
+                h: -10_000.0,
+            },
+        );
         assert_eq!(app.cur().editor_hscroll, 0.0);
 
         // pure-vertical wheel leaves the horizontal offset alone
         let _ = update(&mut app, Message::EditorScrolled { v: 2.0, h: 0.0 });
-        assert_eq!(app.cur().editor_hscroll, 0.0, "vertical wheel is vertical-only");
-        assert_eq!(app.cur().editor_scroll, scroll_before + 2.0, "v still scrolls");
+        assert_eq!(
+            app.cur().editor_hscroll,
+            0.0,
+            "vertical wheel is vertical-only"
+        );
+        assert_eq!(
+            app.cur().editor_scroll,
+            scroll_before + 2.0,
+            "v still scrolls"
+        );
     }
 
     #[test]
@@ -9265,14 +9674,22 @@ mod completion_tests {
                 &mut app,
                 Message::KeyPressed(KeyCode::Char(enter), KeyModifiers::NONE),
             );
-            assert_eq!(app.editor_mut().mode, crate::editor::Mode::Insert, "{enter}");
+            assert_eq!(
+                app.editor_mut().mode,
+                crate::editor::Mode::Insert,
+                "{enter}"
+            );
             assert!(app.completion.is_none(), "{enter} opened a popup");
             // and a single Esc leaves insert mode
             let _ = update(
                 &mut app,
                 Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE),
             );
-            assert_eq!(app.editor_mut().mode, crate::editor::Mode::Normal, "{enter}");
+            assert_eq!(
+                app.editor_mut().mode,
+                crate::editor::Mode::Normal,
+                "{enter}"
+            );
         }
     }
 
@@ -9397,8 +9814,12 @@ mod scroll_tests {
 
         // $ aim (MAXCOL): the cursor rides every crossed line's end and
         // RESTS on the target line's last char
-        app.editor_mut().buf.move_cursor(crate::editor::buffer::Move::Jump(110, 20));
-        app.editor_mut().buf.move_cursor(crate::editor::buffer::Move::EndMax);
+        app.editor_mut()
+            .buf
+            .move_cursor(crate::editor::buffer::Move::Jump(110, 20));
+        app.editor_mut()
+            .buf
+            .move_cursor(crate::editor::buffer::Move::EndMax);
         let _ = update(
             &mut app,
             Message::KeyPressed(KeyCode::Char('u'), KeyModifiers::CONTROL),
@@ -9483,7 +9904,11 @@ mod scroll_tests {
             "half time -> 75% distance: got {} want {expected}",
             app.cur().editor_scroll
         );
-        assert_eq!(app.cur().editor_scroll, app.cur().editor_scroll.round(), "whole lines");
+        assert_eq!(
+            app.cur().editor_scroll,
+            app.cur().editor_scroll.round(),
+            "whole lines"
+        );
     }
 
     #[test]
@@ -9519,7 +9944,10 @@ mod scroll_tests {
         let to = app.cur().scroll_anim.as_ref().unwrap().scroll_to;
         force_finish(&mut app);
         assert!(app.cur().scroll_anim.is_none());
-        assert!((app.cur().editor_scroll - to).abs() < 0.001, "lands exactly");
+        assert!(
+            (app.cur().editor_scroll - to).abs() < 0.001,
+            "lands exactly"
+        );
         assert!(app.cur().editor_scroll >= 0.0);
     }
 
@@ -9607,7 +10035,11 @@ mod scroll_tests {
             &mut app,
             Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::CONTROL),
         );
-        let anim = app.cur().scroll_anim.as_ref().expect("cursor animation runs");
+        let anim = app
+            .cur()
+            .scroll_anim
+            .as_ref()
+            .expect("cursor animation runs");
         assert_eq!(app.cur().editor_scroll, 0.0, "window has nothing to scroll");
         assert_eq!(
             anim.cursor,
@@ -9626,7 +10058,10 @@ mod scroll_tests {
             app.editor_mut().buf.pos().row
         );
         force_finish(&mut app);
-        assert_eq!(app.editor_mut().buf.pos().row, (page / 2.0).round() as usize);
+        assert_eq!(
+            app.editor_mut().buf.pos().row,
+            (page / 2.0).round() as usize
+        );
         // Ctrl-u walks it back up the same way
         let _ = update(
             &mut app,
@@ -9781,8 +10216,9 @@ mod scroll_tests {
             Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::CONTROL),
         );
         force_finish(&mut app);
-        app.last_scroll_chord =
-            Some(std::time::Instant::now() - SCROLL_CHORD_ROLLOUT - std::time::Duration::from_millis(1));
+        app.last_scroll_chord = Some(
+            std::time::Instant::now() - SCROLL_CHORD_ROLLOUT - std::time::Duration::from_millis(1),
+        );
         // ctrl was released long before: clear the arbiter's tracked state
         // — off-X11 (headless CI) ctrl_held() is None and falls back to
         // this flag, which would re-bridge the bare d into ctrl+d
@@ -9813,30 +10249,25 @@ mod scroll_tests {
         let rows = app.editor().buf.line_count();
         // a ctrl'd d delivered straight to the editor (bypassing the app
         // scroll): arms nothing
-        let _ = app.editor_mut().handle_key(KeyEvent::new(
-            KeyCode::Char('d'),
-            KeyModifiers::CONTROL,
-        ));
+        let _ = app
+            .editor_mut()
+            .handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         assert_eq!(app.editor().showcmd(), None, "ctrl+d arms no operator");
         // ctrl+u straight to the editor: no undo
-        let _ = app.editor_mut().handle_key(KeyEvent::new(
-            KeyCode::Char('u'),
-            KeyModifiers::CONTROL,
-        ));
+        let _ = app
+            .editor_mut()
+            .handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
         assert_eq!(app.editor().buf.lines(), src, "ctrl+u does not undo");
         // in insert mode a ctrl'd letter does not type
-        let _ = app.editor_mut().handle_key(KeyEvent::new(
-            KeyCode::Char('i'),
-            KeyModifiers::NONE,
-        ));
-        let _ = app.editor_mut().handle_key(KeyEvent::new(
-            KeyCode::Char('x'),
-            KeyModifiers::CONTROL,
-        ));
-        let _ = app.editor_mut().handle_key(KeyEvent::new(
-            KeyCode::Esc,
-            KeyModifiers::NONE,
-        ));
+        let _ = app
+            .editor_mut()
+            .handle_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE));
+        let _ = app
+            .editor_mut()
+            .handle_key(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::CONTROL));
+        let _ = app
+            .editor_mut()
+            .handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
         assert_eq!(
             app.editor().buf.lines(),
             src,
@@ -9914,7 +10345,10 @@ mod scroll_tests {
         let anim = app.cur().scroll_anim.as_ref().expect("animates");
         assert_eq!(
             anim.cursor,
-            Some((cursor_at as usize, (cursor_at - page / 2.0).round() as usize)),
+            Some((
+                cursor_at as usize,
+                (cursor_at - page / 2.0).round() as usize
+            )),
             "static scroll: cursor moves exactly half a page"
         );
     }
@@ -9978,7 +10412,10 @@ mod scroll_tests {
             &mut app,
             Message::KeyPressed(KeyCode::Char('G'), KeyModifiers::NONE),
         );
-        assert!(app.cur().scroll_anim.is_none(), "jump cancels the animation");
+        assert!(
+            app.cur().scroll_anim.is_none(),
+            "jump cancels the animation"
+        );
         assert_eq!(
             app.editor_mut().buf.pos().row,
             app.editor_mut().buf.line_count() - 1,
@@ -10071,10 +10508,7 @@ mod scroll_tests {
         );
         app.window_size = (1400.0, 900.0);
         assert!(app.max_hscroll() > 0.0, "the wide line overflows");
-        assert!(
-            app.max_scroll() > 0.0,
-            "the doc overflows vertically too"
-        );
+        assert!(app.max_scroll() > 0.0, "the doc overflows vertically too");
         // scroll to the bottom: the last line's bottom edge sits a full
         // line above the pane bottom (the scrollbar band is inside it)
         app.cur_mut().editor_scroll = app.max_scroll();
@@ -10101,10 +10535,7 @@ mod scroll_tests {
             &app,
             iced::Rectangle::new(
                 iced::Point::new(0.0, 0.0),
-                iced::Size::new(
-                    app.editor_pane_width(),
-                    app.page_lines() * lh + lh,
-                ),
+                iced::Size::new(app.editor_pane_width(), app.page_lines() * lh + lh),
             ),
         );
         assert!(hbar.is_some(), "the hbar is laid out");
@@ -10137,7 +10568,10 @@ mod select_all_tests {
         // park the view mid-document; the chord must not move it
         app.cur_mut().editor_scroll = 40.0;
         let before = app.cur().editor_scroll;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL),
+        );
         assert_eq!(app.cur().editor_scroll, before, "the scroll stays");
         // the cursor rests on the last CONTENT line, never the phantom
         // EOL row a trailing newline keeps
@@ -10156,13 +10590,22 @@ mod select_all_tests {
         let mut app = App::with_source(tall_source());
         app.config.vim = true;
         app.focus = Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
         assert_eq!(app.editor().mode, editor::Mode::Insert);
         app.cur_mut().editor_scroll = 40.0;
         let before = app.cur().editor_scroll;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('a'), KeyModifiers::CONTROL),
+        );
         assert_eq!(app.cur().editor_scroll, before, "the scroll stays");
-        assert_eq!(app.editor().buf.pos().row, app.editor().buf.last_content_row());
+        assert_eq!(
+            app.editor().buf.pos().row,
+            app.editor().buf.last_content_row()
+        );
     }
 }
 
@@ -10441,7 +10884,10 @@ mod diagnostics_panel_tests {
         assert!(app.diagnostics_open);
         assert!(app.source().contains('x'), "the key reached the editor");
         // Esc closes
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE),
+        );
         assert!(!app.diagnostics_open);
     }
 
@@ -10454,7 +10900,9 @@ mod diagnostics_panel_tests {
         );
         assert!(!app.cur().parse_errors.is_empty());
         assert!(
-            app.all_diagnostics().iter().all(|d| d.severity == dbml::validate::Severity::Error),
+            app.all_diagnostics()
+                .iter()
+                .all(|d| d.severity == dbml::validate::Severity::Error),
             "{:?}",
             app.all_diagnostics()
         );
@@ -10464,11 +10912,10 @@ mod diagnostics_panel_tests {
         app.fill_their_diags();
         assert!(app.cur().parse_errors.is_empty());
         // the comma-form finding is their validateNode class — an ERROR
-        assert!(
-            app.all_diagnostics()
-                .iter()
-                .any(|d| d.severity == dbml::validate::Severity::Error)
-        );
+        assert!(app
+            .all_diagnostics()
+            .iter()
+            .any(|d| d.severity == dbml::validate::Severity::Error));
     }
 
     #[test]
@@ -10520,8 +10967,14 @@ mod goto_definition_tests {
         let line = app.editor().buf.lines()[ref_row].clone();
         let id_col = line.find("users.id").unwrap() + 8; // the "id" token
         caret_on(&mut app, ref_row, id_col);
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE),
+        );
         // the users table's `id` column definition (row 1)
         assert_eq!(app.editor().buf.cursor().0, 1, "on the column line");
     }
@@ -10543,7 +10996,10 @@ mod goto_definition_tests {
         caret_on(&mut app, ref_row, id_col);
         // the right click: the menu opens at the column's position (the
         // canvas-local point converted the same way the canvas does)
-        let local = local_px(crate::editor::buffer::Pos { row: ref_row, col: id_col });
+        let local = local_px(crate::editor::buffer::Pos {
+            row: ref_row,
+            col: id_col,
+        });
         let _ = update(&mut app, Message::EditorMenu(local));
         let menu = app.editor_menu.clone().expect("the menu opens");
         assert!(menu.has_definition, "the column ref has a definition");
@@ -10555,7 +11011,8 @@ mod goto_definition_tests {
     /// click navigated to, and ONE undo reverts the whole fix.
     #[test]
     fn applying_a_fix_keeps_the_cursor_and_one_undo_reverts() {
-        let src = "Table a { id integer [pk] }\nTable b { a_id integer [null] }\nRef: b.a_id > a.id\n";
+        let src =
+            "Table a { id integer [pk] }\nTable b { a_id integer [null] }\nRef: b.a_id > a.id\n";
         let mut app = super::vim(App::with_source(src.into()));
         app.fill_their_diags();
         app.focus = crate::app::Focus::Editor;
@@ -10567,7 +11024,10 @@ mod goto_definition_tests {
             app.editor().text()
         );
         assert_eq!(app.editor().buf.cursor().0, 1, "the caret stays");
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('u'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('u'), KeyModifiers::NONE),
+        );
         assert_eq!(app.editor().text(), src, "one undo reverts the whole fix");
         assert_eq!(app.editor().buf.cursor().0, 1, "the caret returns");
     }
@@ -10594,8 +11054,7 @@ mod goto_definition_tests {
     /// copy tab with the regular copy-saved toast.
     #[test]
     fn save_as_replace_rebinds_created_opens_copy() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let src = "Table t { x integer }\n";
         let other = std::env::temp_dir().join("dbml_ui_sa_rep_target.dbml");
         std::fs::write(&other, "Table b { y integer }\n").unwrap();
@@ -10606,26 +11065,42 @@ mod goto_definition_tests {
         // rebinds in place, the regular written toast
         let mut app = App::with_source(src.into());
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::SaveAs(other.to_str().unwrap().to_string()));
+        let _ = update(
+            &mut app,
+            Message::SaveAs(other.to_str().unwrap().to_string()),
+        );
         assert_eq!(
             app.cur().file.as_deref(),
             Some(other.as_path()),
             "the tab rebinds to the target"
         );
         assert!(
-            app.message.as_deref().is_some_and(|m| m.contains("written")),
+            app.message
+                .as_deref()
+                .is_some_and(|m| m.contains("written")),
             "the regular written toast: {:?}",
             app.message
         );
         // the same tab, dirty again, Save As onto a FRESH path: the copy
         // tab opens (the created contract) with the copy-saved toast
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::SaveAs(fresh.to_str().unwrap().to_string()));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::SaveAs(fresh.to_str().unwrap().to_string()),
+        );
         assert_eq!(app.tabs.len(), 2, "created: the copy tab opens");
         assert_eq!(app.tabs[1].file.as_deref(), Some(fresh.as_path()));
         assert!(
-            app.message.as_deref().is_some_and(|m| m.starts_with("copy saved to")),
+            app.message
+                .as_deref()
+                .is_some_and(|m| m.starts_with("copy saved to")),
             "{:?}",
             app.message
         );
@@ -10636,20 +11111,27 @@ mod goto_definition_tests {
     /// F12 opens the Save As picker on any buffer (packed or not).
     #[test]
     fn f12_opens_the_save_as_picker() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         // the START screen: F12 is inert (nothing to save) — the chain
         // flag stays down and no picker task runs
         let mut app = App::blank_start();
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::F12, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::F12, KeyModifiers::NONE),
+        );
         assert!(!app.chain_save_as, "the start screen leaves F12 inert");
         // a document-backed buffer: F12 opens the picker
         let mut app = App::with_source("Table t { x integer }\n".into());
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::F12, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::F12, KeyModifiers::NONE),
+        );
         assert!(
-            !app.message.as_deref().is_some_and(|m| m.contains("no file name")),
+            !app.message
+                .as_deref()
+                .is_some_and(|m| m.contains("no file name")),
             "F12 never refuses: it is Save As"
         );
         assert!(app.cur().file.is_none(), "the pick lands async");
@@ -10711,14 +11193,16 @@ mod goto_definition_tests {
 
     #[test]
     fn ctrl_s_on_the_start_screen_is_inert() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         // regular editing (vim off): the blank splash tab is unpacked,
         // so before the guard this chord chained the Save As picker
         let mut app = App::blank_start();
         app.config.vim = false;
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('s'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('s'), KeyModifiers::CONTROL),
+        );
         assert!(!app.chain_save_as, "no Save As chain on the splash");
         assert!(app.message.is_none(), "no toast: {:?}", app.message);
         assert!(!app.cur().doc_open, "the splash stays the splash");
@@ -10734,12 +11218,18 @@ mod goto_definition_tests {
         let mut app = App::blank_start();
         app.config.vim = true;
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('s'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('s'), KeyModifiers::CONTROL),
+        );
         assert!(!app.chain_save_as, "vim mode leaves the splash inert too");
         assert!(app.message.is_none(), "no toast: {:?}", app.message);
         assert!(app.editor().text().is_empty(), "nothing types through");
         app.key_pressed(KeyCode::Char('s'), KeyModifiers::CONTROL);
-        assert!(!app.chain_save_as, "the vim chord itself leaves the flag down");
+        assert!(
+            !app.chain_save_as,
+            "the vim chord itself leaves the flag down"
+        );
     }
 
     #[test]
@@ -10755,8 +11245,14 @@ mod goto_definition_tests {
             .unwrap();
         let col = app.editor().buf.lines()[ref_row].find("users").unwrap();
         caret_on(&mut app, ref_row, col);
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE),
+        );
         // the caret sits on the "users" token of the Table line (row 0)
         let (row, c) = app.editor().buf.cursor();
         assert_eq!(row, 0);
@@ -10781,18 +11277,30 @@ mod goto_definition_tests {
         caret_on(&mut app, ref_row, col);
         let origin = (ref_row, col);
 
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE),
+        );
         assert_eq!(app.editor().buf.cursor().0, 0, "jumped to the definition");
 
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('o'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('o'), KeyModifiers::CONTROL),
+        );
         assert_eq!(
             app.editor().buf.cursor(),
             origin,
             "ctrl+o returns to where gd was typed"
         );
         // and ctrl+i goes forward again
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::CONTROL),
+        );
         assert_eq!(app.editor().buf.cursor().0, 0);
     }
 
@@ -10809,14 +11317,23 @@ mod goto_definition_tests {
             .unwrap();
         let col = app.editor().buf.lines()[row].find("st").unwrap();
         caret_on(&mut app, row, col);
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE),
+        );
         let (drow, dcol) = app.editor().buf.cursor();
         assert_eq!(drow, 6, "the Enum st line");
         assert!(app.editor().buf.lines()[6][dcol..].starts_with("st"));
 
         // right-click on the same word: the menu item is enabled
-        let _ = update(&mut app, Message::EditorMenu(local_px(crate::editor::buffer::Pos { row, col })));
+        let _ = update(
+            &mut app,
+            Message::EditorMenu(local_px(crate::editor::buffer::Pos { row, col })),
+        );
         let menu = app.editor_menu.as_ref().unwrap();
         assert!(menu.has_definition);
         // and pressing it jumps
@@ -10826,7 +11343,13 @@ mod goto_definition_tests {
         // right-click on a plain word ("integer"): disabled
         let plain_row = 1;
         let pcol = app.editor().buf.lines()[plain_row].find("integer").unwrap();
-        let _ = update(&mut app, Message::EditorMenu(local_px(crate::editor::buffer::Pos { row: plain_row, col: pcol })));
+        let _ = update(
+            &mut app,
+            Message::EditorMenu(local_px(crate::editor::buffer::Pos {
+                row: plain_row,
+                col: pcol,
+            })),
+        );
         assert!(!app.editor_menu.as_ref().unwrap().has_definition);
     }
 
@@ -10835,13 +11358,28 @@ mod goto_definition_tests {
         let mut app = app();
         // two instant jump motions: each records its origin
         app.window_size = (800.0, 900.0);
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('G'), KeyModifiers::SHIFT));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('G'), KeyModifiers::SHIFT),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('g'), KeyModifiers::NONE),
+        );
         // ctrl+o walks back through BOTH recorded origins
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('o'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('o'), KeyModifiers::CONTROL),
+        );
         let after_one = app.editor().buf.cursor();
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('o'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('o'), KeyModifiers::CONTROL),
+        );
         let after_two = app.editor().buf.cursor();
         assert_ne!(after_one, after_two, "two recorded jump origins");
     }
@@ -10864,14 +11402,10 @@ mod physical_ctrl_tests {
     #[test]
     fn flagged_ctrl_r_redoes_instead_of_typing() {
         let mut app = super::vim(App::with_source("abc\n".into()));
-        app.editor_mut().handle_key(KeyEvent::new(
-            KeyCode::Char('x'),
-            KeyModifiers::NONE,
-        ));
-        app.editor_mut().handle_key(KeyEvent::new(
-            KeyCode::Char('u'),
-            KeyModifiers::NONE,
-        ));
+        app.editor_mut()
+            .handle_key(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE));
+        app.editor_mut()
+            .handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::NONE));
         assert_eq!(app.source(), "abc\n", "undone");
         // flagged ctrl+r: REDO, never a typed 'r'
         flagged(&mut app, 'r');
@@ -10883,14 +11417,16 @@ mod physical_ctrl_tests {
     fn flagged_ctrl_o_jumps_back_and_never_opens_a_line() {
         let src = "Table a { id integer }\nTable b { x integer }\nRef: b.x > a.id\n";
         let mut app = super::vim(App::with_source(src.to_string()));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('G'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('G'), KeyModifiers::NONE),
+        );
         assert_eq!(app.editor().buf.cursor().0, 2, "G moved to the last line");
         // flagged ctrl+o: jump back — and the bare 'o' NEVER opens a line
         flagged(&mut app, 'o');
         assert_eq!(app.source(), src, "no line was opened");
         assert_eq!(app.editor().buf.cursor().0, 0, "jumped back");
         assert_eq!(app.editor().mode, editor::Mode::Normal);
-
     }
 
     #[test]
@@ -10908,7 +11444,11 @@ mod physical_ctrl_tests {
             &mut app,
             Message::KeyPressed(KeyCode::Char('q'), KeyModifiers::NONE),
         );
-        assert!(app.source().starts_with("q"), "typing resumed: {}", app.source());
+        assert!(
+            app.source().starts_with("q"),
+            "typing resumed: {}",
+            app.source()
+        );
     }
 }
 
@@ -10928,34 +11468,50 @@ mod left_ctrl_pair_tests {
             &mut app,
             Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
         );
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: String::new(),
-            code: KeyCode::Char('h'),
-            mods: KeyModifiers::NONE,
-            stripped: false,
-        });
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: String::new(),
+                code: KeyCode::Char('h'),
+                mods: KeyModifiers::NONE,
+                stripped: false,
+            },
+        );
         // select "he"
         app.editor_mut().buf.start_selection();
-        let _ = update(&mut app, Message::KeyPressed(
-            KeyCode::Right,
-            KeyModifiers::SHIFT,
-        ));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Right, KeyModifiers::SHIFT),
+        );
         // the stripped 'c' types over the selection (insert_str's
         // delete_selection)
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('c'), KeyModifiers::NONE));
-        assert!(app.source().contains('c'), "the stripped c typed: {}", app.source());
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('c'), KeyModifiers::NONE),
+        );
+        assert!(
+            app.source().contains('c'),
+            "the stripped c typed: {}",
+            app.source()
+        );
         println!("after stripped c: {:?}", app.source());
         // the flagged ctrl+c: the pair-undo restores the selection and the
         // copy fires
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: String::new(),
-            code: KeyCode::Char('c'),
-            mods: KeyModifiers::CONTROL,
-            stripped: true,
-        });
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: String::new(),
+                code: KeyCode::Char('c'),
+                mods: KeyModifiers::CONTROL,
+                stripped: true,
+            },
+        );
         // the copy fired on the RESTORED selection and KEPT it (GUI-style
         // ctrl+c) — the typed 'c' was undone by the pair salvage
-        assert!(app.editor().buf.selection_anchor().is_some(), "selection kept");
+        assert!(
+            app.editor().buf.selection_anchor().is_some(),
+            "selection kept"
+        );
         assert_eq!(app.editor().mode, editor::Mode::Insert);
         assert_eq!(app.editor().register_lines(), vec!["Ta".to_string()]);
     }
@@ -10967,18 +11523,27 @@ mod left_ctrl_pair_tests {
         let mut app = super::vim(App::with_source("Table t {\n  id integer [pk]\n}\n".into()));
         app.focus = crate::app::Focus::Editor;
         // a real edit first: x deletes a char
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::NONE),
+        );
         assert_eq!(app.source(), "able t {\n  id integer [pk]\n}\n");
         // the DE pair for ctrl+i: the stripped 'i' enters insert (no edit),
         // the flagged ctrl+i arrives in insert mode
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
         assert_eq!(app.editor().mode, editor::Mode::Insert);
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: String::new(),
-            code: KeyCode::Char('i'),
-            mods: KeyModifiers::CONTROL,
-            stripped: false,
-        });
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: String::new(),
+                code: KeyCode::Char('i'),
+                mods: KeyModifiers::CONTROL,
+                stripped: false,
+            },
+        );
         // back to normal (the jump), the 'x' deletion NOT undone
         assert_eq!(app.editor().mode, editor::Mode::Normal);
         assert_eq!(app.source(), "able t {\n  id integer [pk]\n}\n");
@@ -10990,19 +11555,32 @@ mod left_ctrl_pair_tests {
     fn the_pair_undoes_the_stray_v_before_ctrl_v_pastes() {
         let mut app = super::vim(App::with_source("Table t {\n  id integer [pk]\n}\n".into()));
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
         // the stripped 'v' types
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('v'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('v'), KeyModifiers::NONE),
+        );
         assert!(app.source().contains('v'), "the stripped v typed");
         // the flagged ctrl+v: salvage undoes the 'v', paste fires (empty
         // clipboard here — the assertion is the missing 'v')
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: String::new(),
-            code: KeyCode::Char('v'),
-            mods: KeyModifiers::CONTROL,
-            stripped: false,
-        });
-        assert!(!app.source().contains('v'), "the stray v was undone: {}", app.source());
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: String::new(),
+                code: KeyCode::Char('v'),
+                mods: KeyModifiers::CONTROL,
+                stripped: false,
+            },
+        );
+        assert!(
+            !app.source().contains('v'),
+            "the stray v was undone: {}",
+            app.source()
+        );
         assert_eq!(app.editor().mode, editor::Mode::Insert);
     }
 
@@ -11014,18 +11592,31 @@ mod left_ctrl_pair_tests {
         // no 'd' anywhere in the source, so the absence check is exact
         let mut app = super::vim(App::with_source("Table z {\n  ix integer [pk]\n}\n".into()));
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
         // the stripped 'd' types
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE),
+        );
         assert!(app.source().contains('d'), "the stripped d typed");
         // the flagged ctrl+d: the 'd' is undone and NOTHING else happens
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: String::new(),
-            code: KeyCode::Char('d'),
-            mods: KeyModifiers::CONTROL,
-            stripped: false,
-        });
-        assert!(!app.source().contains('d'), "the stray d was undone: {}", app.source());
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: String::new(),
+                code: KeyCode::Char('d'),
+                mods: KeyModifiers::CONTROL,
+                stripped: false,
+            },
+        );
+        assert!(
+            !app.source().contains('d'),
+            "the stray d was undone: {}",
+            app.source()
+        );
         assert_eq!(app.editor().mode, editor::Mode::Insert);
         assert!(
             app.cur().scroll_target.is_none(),
@@ -11072,7 +11663,6 @@ mod key_echo_tests {
             "the key still reached the editor"
         );
     }
-
 }
 
 #[cfg(test)]
@@ -11101,13 +11691,19 @@ mod scrollbar_drag_tests {
     /// test can inspect it.
     fn press_band(app: &mut App, y: f32) -> Message {
         let view = EditorView { app };
-        let (status, msg) = view.update(
-            &mut crate::canvas::editor::BlinkState::default(),
-            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
-            BOUNDS,
-            Cursor::Available(Point::new(BOUNDS.width - 4.0, y)),
-        );
-        assert_eq!(status, canvas::event::Status::Captured);
+        let Some((msg, _, status)) = view
+            .update(
+                &mut crate::canvas::editor::BlinkState::default(),
+                &canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+                BOUNDS,
+                Cursor::Available(Point::new(BOUNDS.width - 4.0, y)),
+            )
+            .map(canvas::Action::into_inner)
+        else {
+            panic!("expected an Action, got None");
+        };
+
+        assert_eq!(status, iced::event::Status::Captured);
         assert!(
             matches!(
                 &msg,
@@ -11144,7 +11740,11 @@ mod scrollbar_drag_tests {
             y += 20.0;
             // wander x: half the steps far off the band (over the text /
             // past the pane edge) — the drag must not care
-            let x = if (y as i64) % 40 == 0 { 40.0 } else { BOUNDS.width - 4.0 };
+            let x = if (y as i64) % 40 == 0 {
+                40.0
+            } else {
+                BOUNDS.width - 4.0
+            };
             let _ = update(&mut app, Message::MouseMovedWindow(x, y));
             let now = app.cur().editor_scroll;
             assert!(now >= last, "jumped backwards: {last} -> {now} (thrash)");
@@ -11168,18 +11768,25 @@ mod scrollbar_drag_tests {
         // nothing following it (the old thrash)
         let press_y = BOUNDS.height - 20.0;
         let msg = press_band(&mut app, press_y);
-        let Message::ScrollbarDragStart { jump_to: Some(target), .. } = msg else {
+        let Message::ScrollbarDragStart {
+            jump_to: Some(target),
+            ..
+        } = msg
+        else {
             panic!("track press centers the thumb: {msg:?}");
         };
         assert!(target > app.cur().editor_scroll, "jump toward the click");
-        let _ = update(&mut app, Message::ScrollbarDragStart {
-            vertical: true,
-            grab: 0.0,
-            band_origin: 0.0,
-            span: 1.0,
-            max: 0.0,
-            jump_to: Some(target),
-        });
+        let _ = update(
+            &mut app,
+            Message::ScrollbarDragStart {
+                vertical: true,
+                grab: 0.0,
+                band_origin: 0.0,
+                span: 1.0,
+                max: 0.0,
+                jump_to: Some(target),
+            },
+        );
         assert!(app.scrollbar_drag.is_some());
 
         // the jump centered the thumb at the press point
@@ -11331,8 +11938,14 @@ mod tab_tests {
         let x = STRIP_LEFT + 1.5 * TAB_SLOT_W - TAB_VISUAL_W + STRIP_LEFT + 20.0;
         let vx = x - STRIP_LEFT - 0.0; // grab_dx = STRIP_LEFT (pressed at slot 0 left edge)
         let _ = update(&mut app, Message::MouseMovedWindow(x, 12.0));
-        assert_eq!(app.active, 1, "leading edge past the neighbor midpoint: swapped");
-        assert_eq!(app.tab_anim[0], TAB_SLOT_W, "displaced neighbor at the old slot");
+        assert_eq!(
+            app.active, 1,
+            "leading edge past the neighbor midpoint: swapped"
+        );
+        assert_eq!(
+            app.tab_anim[0], TAB_SLOT_W,
+            "displaced neighbor at the old slot"
+        );
         assert!(
             (app.tab_anim[1] - (vx - TAB_SLOT_W)).abs() < 0.5,
             "dragged tab follows the pointer: {:?}",
@@ -11388,7 +12001,11 @@ mod tab_tests {
         for _ in 0..40 {
             let _ = update(&mut app, Message::Tick);
         }
-        assert!(app.tab_anim.iter().all(|o| o.abs() < 0.5), "{:?}", app.tab_anim);
+        assert!(
+            app.tab_anim.iter().all(|o| o.abs() < 0.5),
+            "{:?}",
+            app.tab_anim
+        );
         assert_eq!(app.tabs.len(), 2);
     }
 
@@ -11432,7 +12049,11 @@ mod tab_tests {
         app.cur_mut().zoom = 55.0;
         let _ = update(&mut app, Message::TabPressed(1));
         assert_eq!(app.source(), "Table other { id integer }");
-        assert_eq!(app.editor().mode, editor::Mode::Normal, "vim state is global");
+        assert_eq!(
+            app.editor().mode,
+            editor::Mode::Normal,
+            "vim state is global"
+        );
         assert_eq!(app.cur().editor_scroll, 0.0);
         assert_eq!(app.cur().zoom, crate::view::BASE_ZOOM);
         let _ = update(&mut app, Message::TabPressed(0));
@@ -11445,7 +12066,7 @@ mod tab_tests {
     #[test]
     fn unsaved_changes_and_undo_history_survive_tab_switches() {
         let mut app = two_tabapp(); // active: tab 1 ("other")
-        // unsaved edit at the end of tab 1
+                                    // unsaved edit at the end of tab 1
         let last = app.editor().buf.line_count() - 1;
         app.editor_mut().jump(last, 30);
         let _ = update(&mut app, key(KeyModifiers::NONE, 'i'));
@@ -11475,24 +12096,40 @@ mod tab_tests {
     #[test]
     fn dragging_a_tab_reorders_live_and_the_active_tab_follows() {
         let mut app = two_tabapp(); // [sample, other], "other" active
-        // press tab 0 (the sample) ...
+                                    // press tab 0 (the sample) ...
         let _ = update(&mut app, Message::MouseMovedWindow(STRIP_LEFT + 10.0, 12.0));
         let _ = update(&mut app, Message::TabPressed(0));
         assert_eq!(app.active, 0);
         // ... and drag it well past the second slot: it drops at the last
-        let _ = update(&mut app, Message::MouseMovedWindow(STRIP_LEFT + 2.5 * TAB_SLOT_W, 12.0));
+        let _ = update(
+            &mut app,
+            Message::MouseMovedWindow(STRIP_LEFT + 2.5 * TAB_SLOT_W, 12.0),
+        );
         assert_eq!(app.tabs.len(), 2);
-        assert_eq!(app.active, 1, "the dragged tab stays active under the pointer");
-        assert_eq!(app.source(), SAMPLE_DBML, "the view follows the dragged tab");
+        assert_eq!(
+            app.active, 1,
+            "the dragged tab stays active under the pointer"
+        );
+        assert_eq!(
+            app.source(),
+            SAMPLE_DBML,
+            "the view follows the dragged tab"
+        );
         assert_eq!(app.tabs[0].title(), "Untitled");
         // release drops it in place; further moves do nothing
         let _ = update(&mut app, Message::MouseReleased);
-        let _ = update(&mut app, Message::MouseMovedWindow(STRIP_LEFT + 90.0 * TAB_SLOT_W, 12.0));
+        let _ = update(
+            &mut app,
+            Message::MouseMovedWindow(STRIP_LEFT + 90.0 * TAB_SLOT_W, 12.0),
+        );
         assert_eq!(app.active, 1);
         assert_eq!(app.tabs[0].title(), "Untitled");
 
         // and the other way: drag the last tab left onto the first slot
-        let _ = update(&mut app, Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 10.0, 12.0));
+        let _ = update(
+            &mut app,
+            Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 10.0, 12.0),
+        );
         let _ = update(&mut app, Message::TabPressed(1));
         let _ = update(&mut app, Message::MouseMovedWindow(STRIP_LEFT + 2.0, 12.0));
         assert_eq!(app.active, 0, "dragged back to the front");
@@ -11503,9 +12140,15 @@ mod tab_tests {
     #[test]
     fn a_tab_click_without_drag_only_activates() {
         let mut app = two_tabapp();
-        let _ = update(&mut app, Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 5.0, 12.0));
+        let _ = update(
+            &mut app,
+            Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 5.0, 12.0),
+        );
         let _ = update(&mut app, Message::TabPressed(1));
-        let _ = update(&mut app, Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 7.0, 12.0));
+        let _ = update(
+            &mut app,
+            Message::MouseMovedWindow(STRIP_LEFT + TAB_SLOT_W + 7.0, 12.0),
+        );
         let _ = update(&mut app, Message::MouseReleased);
         assert_eq!(app.active, 1);
         assert_eq!(app.tabs.len(), 2, "no reorder below the drag threshold");
@@ -11515,7 +12158,7 @@ mod tab_tests {
     #[test]
     fn close_tab_activates_the_right_neighbor_else_the_last() {
         let mut app = two_tabapp(); // [sample, other]
-        // close a BACKGROUND tab on the left: the active choice survives
+                                    // close a BACKGROUND tab on the left: the active choice survives
         let _ = update(&mut app, Message::TabPressed(1));
         let _ = update(&mut app, Message::CloseTab(0));
         assert_eq!(app.tabs.len(), 1);
@@ -11569,7 +12212,11 @@ mod tab_tests {
         let _ = update(&mut app, key(KeyModifiers::CONTROL, 'w'));
         assert_eq!(app.tabs.len(), 2);
         assert_eq!(app.active, 1, "the right neighbor took over");
-        assert_eq!(app.editor().mode, editor::Mode::Normal, "no mode leaks across tabs");
+        assert_eq!(
+            app.editor().mode,
+            editor::Mode::Normal,
+            "no mode leaks across tabs"
+        );
     }
 
     #[test]
@@ -11580,7 +12227,11 @@ mod tab_tests {
         let _ = update(&mut app, Message::TabMenu(0));
         let menu = app.tab_menu.as_ref().expect("menu open");
         assert_eq!(menu.tab, 0);
-        assert_eq!(menu.at, Point::new(STRIP_LEFT + 10.0, 12.0), "anchored at the pointer");
+        assert_eq!(
+            menu.at,
+            Point::new(STRIP_LEFT + 10.0, 12.0),
+            "anchored at the pointer"
+        );
         // Close from the menu: only that tab goes
         let _ = update(&mut app, Message::TabMenuClose);
         assert_eq!(app.tabs.len(), 1);
@@ -11621,7 +12272,10 @@ mod tab_tests {
         // blue-ish at rest — removed per the line-color model: a default
         // line is dark at rest and only turns blue on hover
         let node_a = app.cur().diagram.boxes[0].node;
-        let _ = update(&mut app, Message::TableHeaderColor(node_a, Some("#1e69fd".into())));
+        let _ = update(
+            &mut app,
+            Message::TableHeaderColor(node_a, Some("#1e69fd".into())),
+        );
         assert!(
             app.cur().diagram.edges[0].color.is_none(),
             "table colors no longer bleed into the line's rest color"
@@ -11644,7 +12298,10 @@ mod tab_tests {
             (wy + crate::canvas::diagram::MARGIN_CELLS) * ch + panning.y,
         );
         let _ = update(&mut app, Message::CanvasPressed(mid));
-        let menu = app.table_header_menu.as_ref().expect("the line opens the picker");
+        let menu = app
+            .table_header_menu
+            .as_ref()
+            .expect("the line opens the picker");
         assert!(matches!(menu.target, PickerTarget::Edge(0)));
         let _ = update(&mut app, Message::DismissTableHeaderMenu);
 
@@ -11659,7 +12316,10 @@ mod tab_tests {
         assert_eq!(app.cur().diagram.edges[0].color.as_deref(), Some("#e74c3c"));
 
         // the referenced table changing color NO LONGER moves the line
-        let _ = update(&mut app, Message::TableHeaderColor(node_a, Some("#8e44ad".into())));
+        let _ = update(
+            &mut app,
+            Message::TableHeaderColor(node_a, Some("#8e44ad".into())),
+        );
         assert_eq!(
             app.cur().diagram.edges[0].color.as_deref(),
             Some("#e74c3c"),
@@ -11751,7 +12411,10 @@ mod tab_tests {
             "explicit dark written, the next table untouched: {:?}",
             app.source()
         );
-        assert_eq!(app.cur().diagram.edges[ei].color.as_deref(), Some("#1f2128"));
+        assert_eq!(
+            app.cur().diagram.edges[ei].color.as_deref(),
+            Some("#1f2128")
+        );
         // the Default pick (None) removes the entry entirely
         let _ = update(&mut app, Message::EdgeColor(ei, None));
         assert!(app.cur().parse_errors.is_empty(), "{:?}", app.source());
@@ -11810,7 +12473,10 @@ mod tab_tests {
         );
 
         // a pick splices the group's [color:]
-        let _ = update(&mut app, Message::GroupColor("g".to_string(), Some("#1e69fd".into())));
+        let _ = update(
+            &mut app,
+            Message::GroupColor("g".to_string(), Some("#1e69fd".into())),
+        );
         assert!(
             app.source().contains("TableGroup g [color: #1e69fd]"),
             "the group color spliced: {:?}",
@@ -11827,10 +12493,7 @@ mod tab_tests {
             .collect();
         assert_eq!(
             colors,
-            vec![
-                Some("#1e69fd".into()),
-                Some("#d35400".into()),
-            ],
+            vec![Some("#1e69fd".into()), Some("#d35400".into()),],
             "a inherits, b keeps its explicit color"
         );
 
@@ -11849,7 +12512,10 @@ mod tab_tests {
 
         // the dark swatch is an EXPLICIT pick now: it writes #1f2128 on
         // the group (the Default button above owns removal)
-        let _ = update(&mut app, Message::GroupColor("g".to_string(), Some("#1f2128".into())));
+        let _ = update(
+            &mut app,
+            Message::GroupColor("g".to_string(), Some("#1f2128".into())),
+        );
         assert!(
             app.source().contains("TableGroup g [color: #1f2128]"),
             "the dark swatch writes the explicit color: {:?}",
@@ -11872,27 +12538,34 @@ mod tab_tests {
         // never a write onto sibling tables (a sibling splice would make
         // it immune to later group recolors)
         let node = app.cur().diagram.boxes[0].node;
-        let _ = update(&mut app, Message::TableHeaderColor(node, Some("#1e69fd".into())));
+        let _ = update(
+            &mut app,
+            Message::TableHeaderColor(node, Some("#1e69fd".into())),
+        );
         let src = app.source();
         assert_eq!(src.matches("headercolor: #1e69fd").count(), 1, "{src}");
         assert!(src.contains("Table a [headercolor: #1e69fd] {"), "{src}");
         assert!(!src.contains("Table b [headercolor"), "{src}");
         assert!(!src.contains("Table c [headercolor"), "{src}");
         // the diagram reflects exactly the picked table
-        let colors: Vec<Option<String>> =
-            app.cur().diagram.boxes.iter().map(|b| b.header_color.clone()).collect();
+        let colors: Vec<Option<String>> = app
+            .cur()
+            .diagram
+            .boxes
+            .iter()
+            .map(|b| b.header_color.clone())
+            .collect();
         assert_eq!(colors, vec![Some("#1e69fd".into()), None, None]);
 
         // Default clears the picked table only
         let _ = update(&mut app, Message::TableHeaderColor(node, None));
         assert_eq!(app.source().matches("headercolor").count(), 0);
-        assert!(
-            app.cur()
-                .diagram
-                .boxes
-                .iter()
-                .all(|b| b.header_color.is_none())
-        );
+        assert!(app
+            .cur()
+            .diagram
+            .boxes
+            .iter()
+            .all(|b| b.header_color.is_none()));
     }
 
     /// Copying from ELSEWHERE then pasting with vim `p` adopts the
@@ -11907,7 +12580,8 @@ mod tab_tests {
         let mut app = App::with_source("Table t { id integer }\n".into());
         let _ = update(&mut app, Message::AddStickyNote);
         assert!(
-            app.source().contains("Note note1 {\n  \'\'\'Write something…\'\'\'\n}"),
+            app.source()
+                .contains("Note note1 {\n  \'\'\'Write something…\'\'\'\n}"),
             "the note block appended: {:?}",
             app.source()
         );
@@ -11919,9 +12593,8 @@ mod tab_tests {
         assert_eq!(app.cur().diagram.notes.len(), 2);
 
         // and a hand-written custom name is skipped by the generator
-        let mut app = App::with_source(
-            "Table t { id integer }\nNote note1 { \'\'\'mine\'\'\' }\n".into(),
-        );
+        let mut app =
+            App::with_source("Table t { id integer }\nNote note1 { \'\'\'mine\'\'\' }\n".into());
         let _ = update(&mut app, Message::AddStickyNote);
         assert!(app.source().contains("Note note2 {"), "note1 not reused");
     }
@@ -11965,14 +12638,18 @@ mod tab_tests {
         app.editor_mut()
             .buf
             .move_cursor(crate::editor::buffer::Move::Jump(2, 5));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::NONE),
+        );
         assert!(
             app.source().contains("'''ello'''"),
             "the editor wrote the edit: {:?}",
             app.source()
         );
         assert_eq!(
-            app.cur().diagram.notes[0].text, "ello",
+            app.cur().diagram.notes[0].text,
+            "ello",
             "re-parsed into the diagram"
         );
         assert!(app.cur().is_modified(), "an edit is an edit");
@@ -12018,7 +12695,11 @@ mod tab_tests {
         // and a re-parse (an edit elsewhere) keeps the dragged position
         app.cur_mut().set_source(src);
         let n = &app.cur().diagram.notes[0];
-        assert_eq!((n.rect.0, n.rect.1), (n0.0 + 3, n0.1 + 3), "position survives re-parses");
+        assert_eq!(
+            (n.rect.0, n.rect.1),
+            (n0.0 + 3, n0.1 + 3),
+            "position survives re-parses"
+        );
     }
 
     /// A table dragged past a sticky note must not move the note: the
@@ -12052,7 +12733,8 @@ mod tab_tests {
             "the sticky was pinned at grab"
         );
         assert_eq!(
-            app.cur().diagram.notes[0].rect, before,
+            app.cur().diagram.notes[0].rect,
+            before,
             "the note held still while the table passed it"
         );
         assert!(
@@ -12070,7 +12752,10 @@ mod tab_tests {
 
         // p in normal mode pastes the EXTERNAL text (charwise, inline:
         // vim puts AFTER the cursor char, so the initial T stays first)
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('p'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('p'), KeyModifiers::NONE),
+        );
         assert!(
             app.source().starts_with("Texternal textable t {"),
             "the external text pasted inline: {:?}",
@@ -12079,11 +12764,23 @@ mod tab_tests {
 
         // an app yank re-owns the clipboard: after yy, p re-pastes the
         // YANKED line (vim semantics), not the external text again
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('y'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('y'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('y'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('y'), KeyModifiers::NONE),
+        );
         let reg = app.editor().register_lines().join("|");
-        assert!(reg.starts_with("Texternal"), "yy re-registered the line: {reg}");
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('p'), KeyModifiers::NONE));
+        assert!(
+            reg.starts_with("Texternal"),
+            "yy re-registered the line: {reg}"
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('p'), KeyModifiers::NONE),
+        );
         let src = app.source();
         assert!(
             src.contains("Texternal textable t {\nTexternal textable t {"),
@@ -12092,10 +12789,19 @@ mod tab_tests {
 
         // dd then p: the clipboard still holds our push, so the deleted
         // line pastes (vim's unnamed register) — no false adoption
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('d'), KeyModifiers::NONE),
+        );
         let del_reg = app.editor().register_lines().join("|");
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('p'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('p'), KeyModifiers::NONE),
+        );
         let src = app.source();
         assert!(
             !src.contains("external text\n\nexternal"),
@@ -12108,7 +12814,10 @@ mod tab_tests {
         let mut app = super::vim(App::with_source("Table t {\n  id integer\n}\n".into()));
         app.focus = crate::app::Focus::Editor;
         app.clipboard = Some(Box::new(FakeClipboard::with_text("one\ntwo\n")));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('p'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('p'), KeyModifiers::NONE),
+        );
         let src = app.source();
         assert!(
             src.starts_with("Table t {\none\ntwo\n"),
@@ -12149,23 +12858,29 @@ mod tab_tests {
         // a press on the header BAND but off the glyph starts a table
         // drag like any body press
         let _ = update(&mut app, Message::DismissTableHeaderMenu);
-        let _ = update(&mut app, Message::CanvasPressed(Point::new(
-            top_left.x + 8.0,
-            gy,
-        )));
-        assert!(app.table_header_menu.is_none(), "off-glyph is not the picker");
+        let _ = update(
+            &mut app,
+            Message::CanvasPressed(Point::new(top_left.x + 8.0, gy)),
+        );
+        assert!(
+            app.table_header_menu.is_none(),
+            "off-glyph is not the picker"
+        );
         assert!(matches!(app.drag, Drag::Table { .. }));
-        let _ = update(&mut app, Message::CanvasReleased(Point::new(
-            top_left.x + 8.0,
-            gy,
-        )));
+        let _ = update(
+            &mut app,
+            Message::CanvasReleased(Point::new(top_left.x + 8.0, gy)),
+        );
 
         // a column-row press is never the glyph
-        let _ = update(&mut app, Message::CanvasPressed(Point::new(
-            gx,
-            top_left.y + cell.height * 1.5,
-        )));
-        assert!(app.table_header_menu.is_none(), "column row is not the header");
+        let _ = update(
+            &mut app,
+            Message::CanvasPressed(Point::new(gx, top_left.y + cell.height * 1.5)),
+        );
+        assert!(
+            app.table_header_menu.is_none(),
+            "column row is not the header"
+        );
         assert!(matches!(app.drag, Drag::Table { .. }));
     }
 
@@ -12174,30 +12889,50 @@ mod tab_tests {
         let mut app = App::with_source("Table users {\n  id integer [pk]\n}\n".into());
         app.table_header_menu_open(Point::new(420.0, 220.0), PickerTarget::Table(0));
         assert!(app.table_header_menu.is_some(), "the menu is up");
-        let _ = update(&mut app, Message::TableHeaderColor(0, Some("#1e69fd".into())));
+        let _ = update(
+            &mut app,
+            Message::TableHeaderColor(0, Some("#1e69fd".into())),
+        );
         assert!(app.table_header_menu.is_none(), "picking closes the menu");
         assert!(
-            app.cur().source.contains("Table users [headercolor: #1e69fd] {"),
+            app.cur()
+                .source
+                .contains("Table users [headercolor: #1e69fd] {"),
             "got: {:?}",
             app.cur().source
         );
         // the reparse flowed the setting into the diagram box
-        assert_eq!(app.diagram().boxes[0].header_color.as_deref(), Some("#1e69fd"));
+        assert_eq!(
+            app.diagram().boxes[0].header_color.as_deref(),
+            Some("#1e69fd")
+        );
     }
 
     #[test]
     fn header_color_replaces_an_existing_setting_keeping_the_rest() {
         // headercolor first, note after: the entry (and its comma) go away
         let mut app = App::with_source(
-            "Table users [headercolor: #111111, note: 'accounts'] {\n  id integer [pk]\n}\n"
-                .into(),
+            "Table users [headercolor: #111111, note: 'accounts'] {\n  id integer [pk]\n}\n".into(),
         );
-        let _ = update(&mut app, Message::TableHeaderColor(0, Some("#d35400".into())));
+        let _ = update(
+            &mut app,
+            Message::TableHeaderColor(0, Some("#d35400".into())),
+        );
         let src = app.cur().source.clone();
-        assert_eq!(src.matches("headercolor").count(), 1, "exactly one: {src:?}");
+        assert_eq!(
+            src.matches("headercolor").count(),
+            1,
+            "exactly one: {src:?}"
+        );
         assert!(src.contains("headercolor: #d35400"), "got: {src:?}");
-        assert!(src.contains("note: 'accounts'"), "other settings survive: {src:?}");
-        assert_eq!(app.diagram().boxes[0].header_color.as_deref(), Some("#d35400"));
+        assert!(
+            src.contains("note: 'accounts'"),
+            "other settings survive: {src:?}"
+        );
+        assert_eq!(
+            app.diagram().boxes[0].header_color.as_deref(),
+            Some("#d35400")
+        );
 
         // headercolor last (dbdiagram's own order), with an alias before
         // the settings: the splice still lands after the alias
@@ -12205,38 +12940,52 @@ mod tab_tests {
             "Table users as U [note: 'Accounts', headercolor: #111111] {\n  id integer [pk]\n}\n"
                 .into(),
         );
-        let _ = update(&mut app, Message::TableHeaderColor(0, Some("#2d5f8a".into())));
+        let _ = update(
+            &mut app,
+            Message::TableHeaderColor(0, Some("#2d5f8a".into())),
+        );
         let src = app.cur().source.clone();
-        assert_eq!(src.matches("headercolor").count(), 1, "exactly one: {src:?}");
+        assert_eq!(
+            src.matches("headercolor").count(),
+            1,
+            "exactly one: {src:?}"
+        );
         assert!(
             src.contains("Table users as U [note: 'Accounts', headercolor: #2d5f8a] {"),
             "got: {src:?}"
         );
-        assert_eq!(app.diagram().boxes[0].header_color.as_deref(), Some("#2d5f8a"));
+        assert_eq!(
+            app.diagram().boxes[0].header_color.as_deref(),
+            Some("#2d5f8a")
+        );
     }
 
     #[test]
     fn header_color_default_removes_the_setting() {
         // alongside other settings: only the headercolor entry goes
         let mut app = App::with_source(
-            "Table users [note: 'accounts', headercolor: #111111] {\n  id integer [pk]\n}\n"
-                .into(),
+            "Table users [note: 'accounts', headercolor: #111111] {\n  id integer [pk]\n}\n".into(),
         );
-        let _ = update(&mut app, Message::TableHeaderColor(0, None));
-        let src = app.cur().source.clone();
-        assert!(!src.contains("headercolor"), "gone: {src:?}");
-        assert!(src.contains("note: 'accounts'"), "other settings survive: {src:?}");
-        assert_eq!(app.diagram().boxes[0].header_color, None, "reparse cleared it");
-
-        // the only entry: the whole bracket group dissolves (`Table users {`)
-        let mut app = App::with_source("Table users [headercolor: #111111] {\n  id integer\n}\n".into());
         let _ = update(&mut app, Message::TableHeaderColor(0, None));
         let src = app.cur().source.clone();
         assert!(!src.contains("headercolor"), "gone: {src:?}");
         assert!(
-            src.contains("Table users {"),
-            "brackets dissolved: {src:?}"
+            src.contains("note: 'accounts'"),
+            "other settings survive: {src:?}"
         );
+        assert_eq!(
+            app.diagram().boxes[0].header_color,
+            None,
+            "reparse cleared it"
+        );
+
+        // the only entry: the whole bracket group dissolves (`Table users {`)
+        let mut app =
+            App::with_source("Table users [headercolor: #111111] {\n  id integer\n}\n".into());
+        let _ = update(&mut app, Message::TableHeaderColor(0, None));
+        let src = app.cur().source.clone();
+        assert!(!src.contains("headercolor"), "gone: {src:?}");
+        assert!(src.contains("Table users {"), "brackets dissolved: {src:?}");
         assert_eq!(app.diagram().boxes[0].header_color, None);
     }
 
@@ -12249,7 +12998,10 @@ mod tab_tests {
 
         // an alias sits between name and settings; the insert lands after it
         let mut app = App::with_source("Table users as U {\n  id integer\n}\n".into());
-        let _ = update(&mut app, Message::TableHeaderColor(0, Some("#d35400".into())));
+        let _ = update(
+            &mut app,
+            Message::TableHeaderColor(0, Some("#d35400".into())),
+        );
         assert!(
             app.cur()
                 .source
@@ -12263,11 +13015,21 @@ mod tab_tests {
         let mut app = App::with_source(
             "Table users [owner: 'data-team', headercolor: #111111] {\n  id integer\n}\n".into(),
         );
-        let _ = update(&mut app, Message::TableHeaderColor(0, Some("#f1c40f".into())));
+        let _ = update(
+            &mut app,
+            Message::TableHeaderColor(0, Some("#f1c40f".into())),
+        );
         let out = app.cur().source.clone();
-        assert_eq!(out.matches("headercolor").count(), 1, "exactly one: {out:?}");
+        assert_eq!(
+            out.matches("headercolor").count(),
+            1,
+            "exactly one: {out:?}"
+        );
         assert!(out.contains("owner: 'data-team'"), "prop survives: {out:?}");
-        assert_eq!(app.diagram().boxes[0].header_color.as_deref(), Some("#f1c40f"));
+        assert_eq!(
+            app.diagram().boxes[0].header_color.as_deref(),
+            Some("#f1c40f")
+        );
     }
 
     #[test]
@@ -12278,7 +13040,10 @@ mod tab_tests {
         // the menu is modal: any key dismisses it without acting
         let _ = update(&mut app, key(KeyModifiers::NONE, 'x'));
         assert!(app.table_header_menu.is_none());
-        assert!(!app.cur().source.contains("headercolor"), "the key did not edit");
+        assert!(
+            !app.cur().source.contains("headercolor"),
+            "the key did not edit"
+        );
         // clicking elsewhere (the backdrop) dismisses
         app.table_header_menu_open(Point::new(420.0, 220.0), PickerTarget::Table(0));
         let _ = update(&mut app, Message::DismissTableHeaderMenu);
@@ -12287,7 +13052,10 @@ mod tab_tests {
         app.table_header_menu_open(Point::new(420.0, 220.0), PickerTarget::Table(99));
         assert!(app.table_header_menu.is_none(), "stale node never opens");
         // and a stale pick leaves the source untouched
-        let _ = update(&mut app, Message::TableHeaderColor(99, Some("#d35400".into())));
+        let _ = update(
+            &mut app,
+            Message::TableHeaderColor(99, Some("#d35400".into())),
+        );
         assert!(!app.cur().source.contains("headercolor"));
     }
 
@@ -12305,7 +13073,11 @@ mod tab_tests {
         assert_eq!(app.tabs.len(), 2, "nothing closed yet");
         let _ = update(&mut app, Message::TabCloseDiscard);
         assert_eq!(app.tabs.len(), 1);
-        assert_eq!(app.source(), "Table other { id integer }", "the other tab is intact");
+        assert_eq!(
+            app.source(),
+            "Table other { id integer }",
+            "the other tab is intact"
+        );
     }
 
     #[test]
@@ -12345,7 +13117,10 @@ mod clipboard_menu_tests {
             .buf
             .move_cursor(crate::editor::buffer::Move::Jump(0, 0));
         for _ in 0..4 {
-            let _ = update(app, Message::KeyPressed(KeyCode::Right, KeyModifiers::SHIFT));
+            let _ = update(
+                app,
+                Message::KeyPressed(KeyCode::Right, KeyModifiers::SHIFT),
+            );
         }
     }
 
@@ -12414,7 +13189,10 @@ mod clipboard_menu_tests {
         let mut app = regularapp();
         app.clipboard = Some(Box::new(FakeClipboard::with_text("x\ny")));
         let _ = update(&mut app, key(KeyModifiers::CONTROL, 'v'));
-        assert_eq!(app.editor().buf.lines(), ["x", "yhello world", "second line"]);
+        assert_eq!(
+            app.editor().buf.lines(),
+            ["x", "yhello world", "second line"]
+        );
     }
 
     #[test]
@@ -12450,7 +13228,10 @@ mod clipboard_menu_tests {
         let mut app = regularapp();
         app.clipboard = Some(Box::new(FakeClipboard::with_text("a\r\nb")));
         let _ = update(&mut app, key(KeyModifiers::CONTROL, 'v'));
-        assert_eq!(app.editor().buf.lines(), ["a", "bhello world", "second line"]);
+        assert_eq!(
+            app.editor().buf.lines(),
+            ["a", "bhello world", "second line"]
+        );
     }
 
     #[test]
@@ -12516,17 +13297,29 @@ mod clipboard_menu_tests {
         let mut app = super::vim(App::with_source("Table z {\n  ix integer [pk]\n}\n".into()));
         app.focus = crate::app::Focus::Editor;
         // v + movement makes the highlight
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('v'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('v'), KeyModifiers::NONE),
+        );
         assert_eq!(app.editor().mode, editor::Mode::Visual);
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Right, KeyModifiers::SHIFT));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Right, KeyModifiers::SHIFT));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Right, KeyModifiers::SHIFT),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Right, KeyModifiers::SHIFT),
+        );
         // the y arrives with a stale ctrl flag
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: String::new(),
-            code: KeyCode::Char('y'),
-            mods: KeyModifiers::CONTROL,
-            stripped: false,
-        });
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: String::new(),
+                code: KeyCode::Char('y'),
+                mods: KeyModifiers::CONTROL,
+                stripped: false,
+            },
+        );
         assert_eq!(
             app.editor().register_lines(),
             vec!["Tab".to_string()],
@@ -12538,16 +13331,22 @@ mod clipboard_menu_tests {
         // flagged y yanks the highlight
         let mut app = super::vim(App::with_source("Table z {\n  ix integer [pk]\n}\n".into()));
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 0 })));
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 0 })),
+        );
         let to = window_px(Pos { row: 0, col: 3 });
         let _ = update(&mut app, Message::MouseMovedWindow(to.x, to.y));
         let _ = update(&mut app, Message::MouseReleased);
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: String::new(),
-            code: KeyCode::Char('y'),
-            mods: KeyModifiers::CONTROL,
-            stripped: false,
-        });
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: String::new(),
+                code: KeyCode::Char('y'),
+                mods: KeyModifiers::CONTROL,
+                stripped: false,
+            },
+        );
         assert_eq!(
             app.editor().register_lines(),
             vec!["Tabl".to_string()],
@@ -12588,7 +13387,10 @@ mod clipboard_menu_tests {
 
         // press + drag right/down by ~2 cells
         let _ = update(&mut app, Message::CanvasPressed(band_pt));
-        assert!(matches!(app.drag, Drag::Group { .. }), "band press = group drag");
+        assert!(
+            matches!(app.drag, Drag::Group { .. }),
+            "band press = group drag"
+        );
         let to = iced::Point::new(band_pt.x + 2.0 * 10.0, band_pt.y + 1.0 * 20.0);
         let _ = update(&mut app, Message::CanvasMoved(to));
         let _ = update(&mut app, Message::CanvasReleased(to));
@@ -12605,10 +13407,13 @@ mod clipboard_menu_tests {
             .collect();
         for (title, (x, y)) in &before {
             let (nx, ny) = after.iter().find(|(t, _)| t == title).unwrap().1;
-            let g_member = app.cur().diagram.groups[0]
-                .members
-                .iter()
-                .any(|&n| app.cur().diagram.boxes.iter().any(|b| b.node == n && &b.title == title));
+            let g_member = app.cur().diagram.groups[0].members.iter().any(|&n| {
+                app.cur()
+                    .diagram
+                    .boxes
+                    .iter()
+                    .any(|b| b.node == n && &b.title == title)
+            });
             if g_member {
                 assert_eq!((nx, ny), (x + 2, y + 1), "{title} moved with the group");
             } else {
@@ -12656,7 +13461,10 @@ mod clipboard_menu_tests {
         let tl = crate::canvas::diagram::to_px(g.rect.0, g.rect.1, zoom, pan);
         let band_pt = iced::Point::new(tl.x + 5.0, tl.y + 10.0);
         let _ = update(&mut app, Message::CanvasPressed(band_pt));
-        assert!(matches!(app.drag, Drag::Group { .. }), "band press = group drag");
+        assert!(
+            matches!(app.drag, Drag::Group { .. }),
+            "band press = group drag"
+        );
         let _ = update(&mut app, Message::CanvasReleased(band_pt));
         assert_eq!(app.pending_jump, None, "consumed on release");
         assert_eq!(app.focus, Focus::Editor, "the jump parked the editor");
@@ -12700,7 +13508,10 @@ mod clipboard_menu_tests {
         let a = &app.cur().diagram.boxes[0];
         let center = crate::canvas::diagram::to_px(a.x + a.w / 2, a.y + 1, zoom, pan);
         let _ = update(&mut app, Message::CanvasPressed(center));
-        assert!(matches!(app.drag, Drag::Table { .. }), "a member press is a table drag");
+        assert!(
+            matches!(app.drag, Drag::Table { .. }),
+            "a member press is a table drag"
+        );
         let to = iced::Point::new(center.x + 6.0 * 10.0, center.y);
         let _ = update(&mut app, Message::CanvasMoved(to));
         let _ = update(&mut app, Message::CanvasReleased(to));
@@ -12762,8 +13573,7 @@ mod clipboard_menu_tests {
 
     #[test]
     fn restore_drops_tabs_whose_files_vanished() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let kept = std::env::temp_dir().join("dbml_ui_session_kept.dbml");
         let gone = std::env::temp_dir().join("dbml_ui_session_gone.dbml");
         std::fs::write(&kept, "Table keep { x integer }\n").unwrap();
@@ -12807,8 +13617,7 @@ mod clipboard_menu_tests {
     /// (first save).
     #[test]
     fn save_as_keeps_the_original_and_opens_the_copy_in_background() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let orig = std::env::temp_dir().join("dbml_ui_sa_orig.dbml");
         let copy = std::env::temp_dir().join("dbml_ui_sa_copy.dbml");
         std::fs::write(&orig, "Table t { x integer }\n").unwrap();
@@ -12817,9 +13626,18 @@ mod clipboard_menu_tests {
         app.open_file(orig.to_str().unwrap()).unwrap();
         app.focus = crate::app::Focus::Editor;
         // an unsaved edit, then Save As a copy
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::SaveAs(copy.to_str().unwrap().to_string()));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::SaveAs(copy.to_str().unwrap().to_string()),
+        );
 
         // Save As switches to the copy: the new tab takes the screen,
         // bound to the new path, clean, with the saved text
@@ -12846,19 +13664,29 @@ mod clipboard_menu_tests {
     /// first save) instead of erroring; the pick then rebinds the tab.
     #[test]
     fn save_on_an_unpacked_buffer_chains_the_save_as_picker() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let mut app = App::with_source("Table t { x integer }\n".into());
         app.focus = crate::app::Focus::Editor;
         assert!(app.cur().file.is_none(), "fixture: an unpacked buffer");
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
         // ctrl+S: the picker task chains (the flag drains in update); no
         // save-refusal toast, and the tab stays unbound until the pick
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('s'), KeyModifiers::CONTROL));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('s'), KeyModifiers::CONTROL),
+        );
         assert!(!app.chain_save_as, "the chain flag drained into the task");
         assert!(
-            !app.message.as_deref().is_some_and(|m| m.contains("no file name")),
+            !app.message
+                .as_deref()
+                .is_some_and(|m| m.contains("no file name")),
             "no save refusal: {:?}",
             app.message
         );
@@ -12869,15 +13697,23 @@ mod clipboard_menu_tests {
     /// there is no "original" to preserve).
     #[test]
     fn save_as_on_an_untitled_tab_rebinds() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let path = std::env::temp_dir().join("dbml_ui_sa_first.dbml");
         let _ = std::fs::remove_file(&path);
         let mut app = App::with_source("Table t { x integer }\n".into());
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::SaveAs(path.to_str().unwrap().to_string()));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::SaveAs(path.to_str().unwrap().to_string()),
+        );
         assert_eq!(app.tabs.len(), 1, "no copy tab for a first save");
         assert_eq!(app.cur().file.as_deref(), Some(path.as_path()), "rebound");
         assert!(!app.cur().is_modified(), "saved clean");
@@ -12887,15 +13723,20 @@ mod clipboard_menu_tests {
 
     #[test]
     fn closing_a_dirty_tab_asks_and_the_decisions_work() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let path = std::env::temp_dir().join("dbml_ui_tabclose_test.dbml");
         std::fs::write(&path, "Table t { x integer }\n").unwrap();
         let mut app = App::blank_start();
         app.open_file(path.to_str().unwrap()).unwrap();
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
 
         // the close attempt: confirm up, tab still here
         let _ = update(&mut app, Message::CloseTab(0));
@@ -12917,15 +13758,20 @@ mod clipboard_menu_tests {
 
     #[test]
     fn save_and_close_writes_the_file_then_closes() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let path = std::env::temp_dir().join("dbml_ui_tabsave_test.dbml");
         std::fs::write(&path, "Table t { x integer }\n").unwrap();
         let mut app = super::vim(App::blank_start());
         app.open_file(path.to_str().unwrap()).unwrap();
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
         let _ = update(&mut app, Message::CloseTab(0));
         assert_eq!(app.tab_close_confirm, Some(0));
         let _ = update(&mut app, Message::TabCloseSave);
@@ -12944,35 +13790,53 @@ mod clipboard_menu_tests {
     fn save_and_close_on_an_untitled_tab_just_closes() {
         // config writes (open/save flows persist recents) must serialize
         // with the other config-touching tests
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let mut app = App::with_source("Table t { x integer }\n".into());
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
         let _ = update(&mut app, Message::CloseTab(0));
         let _ = update(&mut app, Message::TabCloseSave);
         assert!(app.tab_close_confirm.is_none(), "the confirm resolved");
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn window_close_with_dirty_buffers_asks_and_cancel_keeps_alive() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-        .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         // the clean-exit branch writes the session record — redirect it
         // away from the real restore state
         let dir = std::env::temp_dir().join(format!("dbml-ui-close-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::env::set_var("DBML_UI_SESSION", dir.join("session"));
+
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_SESSION", dir.join("session"));
+        }
+
         let path = std::env::temp_dir().join("dbml_ui_exit_test.dbml");
         std::fs::write(&path, "Table t { x integer }\n").unwrap();
         let mut app = super::vim(App::blank_start());
         app.open_file(path.to_str().unwrap()).unwrap();
         app.focus = crate::app::Focus::Editor;
         // an unsaved edit
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
 
         // the WM X: confirms, does NOT quit
         let _ = update(&mut app, Message::WindowCloseRequested);
@@ -12984,8 +13848,14 @@ mod clipboard_menu_tests {
         assert!(app.cur().is_modified(), "edits kept");
 
         // clean buffers: the X quits straight away
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('u'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('u'), KeyModifiers::NONE),
+        );
         assert!(!app.any_dirty());
         let _ = update(&mut app, Message::WindowCloseRequested);
         assert!(app.should_quit, "clean exit is immediate");
@@ -12993,7 +13863,12 @@ mod clipboard_menu_tests {
             crate::session::load().map(|s| s.clean).unwrap_or(false),
             "the clean exit left the reopen record"
         );
-        std::env::remove_var("DBML_UI_SESSION");
+
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_SESSION");
+        }
+
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_file(&path);
     }
@@ -13003,20 +13878,33 @@ mod clipboard_menu_tests {
     /// edits cannot resurrect. The session path redirects to a temp file
     /// so the real restore state is never touched by a test.
     #[test]
+    #[allow(unsafe_code)]
     fn discard_exit_leaves_a_clean_record() {
-        let _g = crate::config::CONFIG_ENV_LOCK
-        .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("dbml-ui-exit-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::env::set_var("DBML_UI_SESSION", dir.join("session"));
+
+        // keep test writes out of the real config
+        //
+        // SAFETY: Should fit the safety criteria of `set_var`.
+        unsafe {
+            std::env::set_var("DBML_UI_SESSION", dir.join("session"));
+        }
+
         let path = std::env::temp_dir().join("dbml_ui_discard_test.dbml");
         std::fs::write(&path, "Table t { x integer }\n").unwrap();
         let mut app = App::blank_start();
         app.open_file(path.to_str().unwrap()).unwrap();
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
         assert!(app.any_dirty());
 
         // the edit flushes to the session on the next tick (the crash net)
@@ -13035,7 +13923,11 @@ mod clipboard_menu_tests {
         assert_eq!(s.tabs[0].file.as_deref(), Some(path.to_str().unwrap()));
         assert!(s.tabs[0].text.is_empty(), "no buffer text rides along");
 
-        std::env::remove_var("DBML_UI_SESSION");
+        // SAFETY: Should fit the safety criteria of `remove_var`.
+        unsafe {
+            std::env::remove_var("DBML_UI_SESSION");
+        }
+
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_file(&path);
     }
@@ -13103,7 +13995,11 @@ mod clipboard_menu_tests {
         assert_eq!(back.cur().table_pos.get("users"), Some(&(31, 17)));
         assert_eq!(back.cur().note_pos.get("idea"), Some(&(2, 9, 14, 5)));
         assert_eq!(back.cur().item_z, vec![RaisedItem::Table("users".into())]);
-        assert_eq!(back.cur().group_z, vec!["staff".to_string()], "the group z tier restores too");
+        assert_eq!(
+            back.cur().group_z,
+            vec!["staff".to_string()],
+            "the group z tier restores too"
+        );
         let b = back
             .cur()
             .diagram
@@ -13111,7 +14007,11 @@ mod clipboard_menu_tests {
             .iter()
             .find(|b| b.title == "users")
             .unwrap();
-        assert_eq!((b.x, b.y), (31, 17), "the box re-laid-out at the saved cell");
+        assert_eq!(
+            (b.x, b.y),
+            (31, 17),
+            "the box re-laid-out at the saved cell"
+        );
 
         // clean-exit restore (record carries paths + layout, text from disk)
         let record = app.clean_record();
@@ -13162,7 +14062,7 @@ mod clipboard_menu_tests {
             scroll: 0.0,
             hscroll: 0.0,
             doc_open: true,
-                ..Default::default()
+            ..Default::default()
         };
         let record = crate::session::Session {
             active: 1, // the alive file, second in the list
@@ -13217,13 +14117,11 @@ mod clipboard_menu_tests {
         assert!(record.tabs[0].text.is_empty());
     }
 
-
     #[test]
     fn session_snapshot_and_restore_preserve_unsaved_edits() {
         // open_file records a recent (a config write) — serialize with the
         // other config-touching tests
-        let _g = crate::config::CONFIG_ENV_LOCK
-            .lock();
+        let _g = crate::config::CONFIG_ENV_LOCK.lock();
         // a FILE-backed tab with unsaved edits (the real restart scenario)
         let path = std::env::temp_dir().join("dbml_ui_session_test.dbml");
         std::fs::write(&path, "Table users {\n  id integer [pk]\n}\n").unwrap();
@@ -13231,8 +14129,14 @@ mod clipboard_menu_tests {
         app.open_file(path.to_str().unwrap()).unwrap();
         app.focus = crate::app::Focus::Editor;
         // type into insert mode: an unsaved edit + cursor + insert mode
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
         assert!(app.cur().is_modified(), "edited = dirty");
         app.mark_session_dirty();
 
@@ -13249,12 +14153,19 @@ mod clipboard_menu_tests {
         assert!(fresh.cur().is_modified(), "still dirty after restore");
         // the mode comes from the CONFIG (the global preference), not the
         // crashed tab's transient insert state: vim default = Normal
-        assert_eq!(fresh.editor().mode, editor::Mode::Normal, "mode from config");
+        assert_eq!(
+            fresh.editor().mode,
+            editor::Mode::Normal,
+            "mode from config"
+        );
         assert_eq!(fresh.editor().buf.cursor(), (0, 1), "cursor restored");
         assert!(!fresh.session_dirty, "restore leaves a clean snapshot");
         // and the restored tab keeps editing normally — in the CONFIG's
         // mode (Normal): 'w' moves to the next word instead of typing
-        let _ = update(&mut fresh, Message::KeyPressed(KeyCode::Char('w'), KeyModifiers::NONE));
+        let _ = update(
+            &mut fresh,
+            Message::KeyPressed(KeyCode::Char('w'), KeyModifiers::NONE),
+        );
         assert!(
             fresh.source() == "zTable users {\n  id integer [pk]\n}\n",
             "normal-mode w moves, does not type: {:?}",
@@ -13267,38 +14178,65 @@ mod clipboard_menu_tests {
     fn mouse_drag_enters_visual_and_y_yanks_the_highlight() {
         let mut app = super::vim(App::with_source("Table z {\n  ix integer [pk]\n}\n".into()));
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 0 })));
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 0 })),
+        );
         let to = window_px(Pos { row: 0, col: 3 });
         let _ = update(&mut app, Message::MouseMovedWindow(to.x, to.y));
         let _ = update(&mut app, Message::MouseReleased);
         assert_eq!(app.editor().mode, editor::Mode::Visual, "drag is visual");
         assert!(app.editor().buf.selection_anchor().is_some());
-        let _ = update(&mut app, Message::KeyEcho {
-            raw: String::new(),
-            code: KeyCode::Char('y'),
-            mods: KeyModifiers::NONE,
-            stripped: false,
-        });
+        let _ = update(
+            &mut app,
+            Message::KeyEcho {
+                raw: String::new(),
+                code: KeyCode::Char('y'),
+                mods: KeyModifiers::NONE,
+                stripped: false,
+            },
+        );
         assert_eq!(app.editor().register_lines(), vec!["Tabl".to_string()]);
-        assert_eq!(app.editor().mode, editor::Mode::Normal, "y returns to normal");
+        assert_eq!(
+            app.editor().mode,
+            editor::Mode::Normal,
+            "y returns to normal"
+        );
         assert!(app.editor().buf.selection_anchor().is_none());
 
         // a plain click (no drag) collapses straight back to Normal
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 1, col: 2 })));
-        assert_eq!(app.editor().mode, editor::Mode::Visual, "press enters visual");
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 1, col: 2 })),
+        );
+        assert_eq!(
+            app.editor().mode,
+            editor::Mode::Visual,
+            "press enters visual"
+        );
         let _ = update(&mut app, Message::MouseReleased);
-        assert_eq!(app.editor().mode, editor::Mode::Normal, "click back to normal");
+        assert_eq!(
+            app.editor().mode,
+            editor::Mode::Normal,
+            "click back to normal"
+        );
         assert!(app.editor().buf.selection_anchor().is_none());
         // typing works again as the normal-mode operator (the caret sits
         // on line 1 col 2 from the click, so x deletes the 'i' of "ix")
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('x'), KeyModifiers::NONE),
+        );
         assert_eq!(app.source(), "Table z {\n  x integer [pk]\n}\n");
     }
 
     #[test]
     fn mouse_drag_selects_in_regular_mode() {
         let mut app = regularapp();
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 1 })));
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 1 })),
+        );
         assert!(matches!(app.drag, Drag::EditorSelect));
         let to = window_px(Pos { row: 0, col: 4 });
         let _ = update(&mut app, Message::MouseMovedWindow(to.x, to.y));
@@ -13314,7 +14252,10 @@ mod clipboard_menu_tests {
     #[test]
     fn mouse_drag_clamps_when_it_leaves_the_pane() {
         let mut app = regularapp();
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 0 })));
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 0 })),
+        );
         // way below/right of the buffer: clamps to the buffer end
         let _ = update(&mut app, Message::MouseMovedWindow(10_000.0, 10_000.0));
         let _ = update(&mut app, Message::MouseReleased);
@@ -13328,9 +14269,15 @@ mod clipboard_menu_tests {
     #[test]
     fn mouse_click_collapses_the_selection() {
         let mut app = regularapp();
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 3 })));
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 3 })),
+        );
         let _ = update(&mut app, Message::MouseReleased);
-        assert!(app.editor().buf.selection_anchor().is_none(), "a click places the caret");
+        assert!(
+            app.editor().buf.selection_anchor().is_none(),
+            "a click places the caret"
+        );
         assert_eq!(app.editor().buf.pos(), Pos { row: 0, col: 3 });
     }
 
@@ -13339,7 +14286,10 @@ mod clipboard_menu_tests {
         // gvim-style mouse selection: a drag in vim normal mode extends a
         // selection; a plain click collapses to a caret
         let mut app = App::default(); // vim mode is the default
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 1 })));
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 1 })),
+        );
         assert!(matches!(app.drag, Drag::EditorSelect));
         let to = window_px(Pos { row: 0, col: 4 });
         let _ = update(&mut app, Message::MouseMovedWindow(to.x, to.y));
@@ -13349,7 +14299,10 @@ mod clipboard_menu_tests {
             "drag selected in vim mode"
         );
         // a plain click collapses
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 3 })));
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 3 })),
+        );
         let _ = update(&mut app, Message::MouseReleased);
         assert!(app.editor().buf.selection_anchor().is_none());
         assert_eq!(app.editor().buf.pos(), Pos { row: 0, col: 3 });
@@ -13358,8 +14311,14 @@ mod clipboard_menu_tests {
     #[test]
     fn mouse_drag_selects_in_insert_mode_too() {
         let mut app = App::default();
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 1 })));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 1 })),
+        );
         let to = window_px(Pos { row: 0, col: 4 });
         let _ = update(&mut app, Message::MouseMovedWindow(to.x, to.y));
         let _ = update(&mut app, Message::MouseReleased);
@@ -13405,7 +14364,10 @@ mod clipboard_menu_tests {
         app.clipboard = Some(Box::new(FakeClipboard::default()));
         let _ = update(&mut app, Message::EditorMenu(Point::new(30.0, 120.0)));
         assert!(app.editor_menu.is_some());
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Esc, KeyModifiers::NONE),
+        );
         assert!(app.editor_menu.is_none(), "any key dismisses");
         let _ = update(&mut app, Message::EditorMenu(Point::new(30.0, 120.0)));
         let _ = update(&mut app, Message::DismissEditorMenu);
@@ -13438,7 +14400,6 @@ mod clipboard_menu_tests {
         let _ = update(&mut app, Message::EditorMenu(Point::new(30.0, 120.0)));
         let _ = update(&mut app, Message::EditorMenuPaste);
         assert_eq!(app.editor().buf.line(0), "Phello world");
-
     }
 
     #[test]
@@ -13447,7 +14408,10 @@ mod clipboard_menu_tests {
         // shift+arrows: drag, then menu Copy
         let mut app = regularapp();
         app.clipboard = Some(Box::new(FakeClipboard::default()));
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 0 })));
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 0 })),
+        );
         let to = window_px(Pos { row: 0, col: 4 });
         let _ = update(&mut app, Message::MouseMovedWindow(to.x, to.y));
         let _ = update(&mut app, Message::MouseReleased);
@@ -13469,12 +14433,22 @@ mod clipboard_menu_tests {
     fn selecting_with_the_mouse_then_typing_replaces_it() {
         let mut app = regularapp();
         app.clipboard = Some(Box::new(FakeClipboard::default()));
-        let _ = update(&mut app, Message::EditorPressed(local_px(Pos { row: 0, col: 0 })));
+        let _ = update(
+            &mut app,
+            Message::EditorPressed(local_px(Pos { row: 0, col: 0 })),
+        );
         let to = window_px(Pos { row: 0, col: 4 });
         let _ = update(&mut app, Message::MouseMovedWindow(to.x, to.y));
         let _ = update(&mut app, Message::MouseReleased);
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('X'), KeyModifiers::NONE));
-        assert_eq!(app.editor().buf.line(0), "X world", "typing replaced the selection");
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('X'), KeyModifiers::NONE),
+        );
+        assert_eq!(
+            app.editor().buf.line(0),
+            "X world",
+            "typing replaced the selection"
+        );
     }
 
     #[test]
@@ -13678,7 +14652,10 @@ mod undo_redo_tests {
     #[test]
     fn undo_dismisses_the_completion_popup() {
         let mut app = super::vim(App::default()); // SAMPLE_DBML: completion has items
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
         let _ = update(
             &mut app,
             Message::KeyPressed(KeyCode::Space, KeyModifiers::CONTROL),
@@ -13794,9 +14771,17 @@ mod ide_typing_tests {
         key(&mut app, KeyCode::Backspace);
         assert_eq!(app.editor().buf.line(1), "  (");
         key(&mut app, KeyCode::Char('('));
-        assert_eq!(app.editor().buf.line(1), "  (()", "nested pair, caret between");
+        assert_eq!(
+            app.editor().buf.line(1),
+            "  (()",
+            "nested pair, caret between"
+        );
         key(&mut app, KeyCode::Backspace);
-        assert_eq!(app.editor().buf.line(1), "  (", "the inner () collapses whole");
+        assert_eq!(
+            app.editor().buf.line(1),
+            "  (",
+            "the inner () collapses whole"
+        );
         key(&mut app, KeyCode::Backspace);
         assert_eq!(app.editor().buf.line(1), "  ");
     }
@@ -13814,8 +14799,14 @@ mod save_probe {
         let mut app = super::vim(App::blank_start());
         app.open_file(path.to_str().unwrap()).unwrap();
         app.focus = crate::app::Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('i'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
         eprintln!("mode: {:?}", app.cur().editor.mode_str());
         eprintln!("buffer after keys: {:?}", app.cur().editor.text());
         eprintln!("modified: {}", app.cur().is_modified());
@@ -13836,10 +14827,16 @@ mod vim_click_clamp_tests {
     fn vim_click_past_eol_clamps_to_last_char() {
         let mut app = vim(App::with_source("Table t {\n  id int\n}\n".into()));
         app.focus = Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('j'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('j'), KeyModifiers::NONE),
+        );
         let line_len = app.editor().buf.line_len(1);
         let past_eol = crate::canvas::editor::pos_to_px(
-            crate::editor::buffer::Pos { row: 1, col: line_len + 2 },
+            crate::editor::buffer::Pos {
+                row: 1,
+                col: line_len + 2,
+            },
             0.0,
             0.0,
         );
@@ -13853,7 +14850,11 @@ mod vim_click_clamp_tests {
         // the release collapses the visual back to normal — still clamped
         let _ = update(&mut app, Message::MouseReleased);
         let (_, col) = app.editor().buf.cursor();
-        assert_eq!(col, line_len.saturating_sub(1), "still clamped after release");
+        assert_eq!(
+            col,
+            line_len.saturating_sub(1),
+            "still clamped after release"
+        );
     }
 
     /// The blip: clicking past the EOL with a selection already active
@@ -13866,16 +14867,28 @@ mod vim_click_clamp_tests {
     fn visual_press_past_eol_never_lands_on_the_insert_cell() {
         let mut app = vim(App::with_source("Table t {\n  id int\n}\n".into()));
         app.focus = Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('j'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('j'), KeyModifiers::NONE),
+        );
         let line_len = app.editor().buf.line_len(1);
         let past_eol = crate::canvas::editor::pos_to_px(
-            crate::editor::buffer::Pos { row: 1, col: line_len + 2 },
+            crate::editor::buffer::Pos {
+                row: 1,
+                col: line_len + 2,
+            },
             0.0,
             0.0,
         );
         // a live visual selection (v + l), then the click
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('v'), KeyModifiers::NONE));
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('l'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('v'), KeyModifiers::NONE),
+        );
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('l'), KeyModifiers::NONE),
+        );
         let _ = update(&mut app, Message::EditorPressed(past_eol));
         let (_, col) = app.editor().buf.cursor();
         assert_eq!(
@@ -13900,10 +14913,16 @@ mod vim_click_clamp_tests {
     fn plain_click_past_eol_collapses_instead_of_sticking_in_visual() {
         let mut app = vim(App::with_source("Table t {\n  id int\n}\n".into()));
         app.focus = Focus::Editor;
-        let _ = update(&mut app, Message::KeyPressed(KeyCode::Char('j'), KeyModifiers::NONE));
+        let _ = update(
+            &mut app,
+            Message::KeyPressed(KeyCode::Char('j'), KeyModifiers::NONE),
+        );
         let line_len = app.editor().buf.line_len(1);
         let past_eol = crate::canvas::editor::pos_to_px(
-            crate::editor::buffer::Pos { row: 1, col: line_len + 2 },
+            crate::editor::buffer::Pos {
+                row: 1,
+                col: line_len + 2,
+            },
             0.0,
             0.0,
         );
@@ -13914,7 +14933,11 @@ mod vim_click_clamp_tests {
             editor::Mode::Normal,
             "the click collapsed — no stuck visual"
         );
-        assert_eq!(app.editor().buf.selection_anchor(), None, "no leftover highlight");
+        assert_eq!(
+            app.editor().buf.selection_anchor(),
+            None,
+            "no leftover highlight"
+        );
         let (row, col) = app.editor().buf.cursor();
         assert_eq!(row, 1);
         assert_eq!(col, line_len.saturating_sub(1), "resting ON the last char");

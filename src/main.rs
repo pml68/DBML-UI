@@ -1,6 +1,7 @@
 //! dbml-ui — desktop DBML diagram editor built on iced.
 
-#![forbid(unsafe_code)] // the whole editor is written in safe Rust
+#![deny(unsafe_code)]
+// the whole editor is written in safe Rust
 // a GUI app, not a console one: Windows would otherwise open a terminal
 // alongside the window. Debug builds keep the console for stderr.
 #![cfg_attr(
@@ -8,15 +9,15 @@
     windows_subsystem = "windows"
 )]
 mod app;
+mod canvas;
+mod clipboard;
+mod config;
+mod editor;
 #[cfg(all(unix, not(target_os = "macos")))]
 mod platform;
 #[cfg(not(all(unix, not(target_os = "macos"))))]
 #[path = "platform_stub.rs"]
 mod platform;
-mod canvas;
-mod clipboard;
-mod config;
-mod editor;
 mod session;
 mod theme;
 mod view;
@@ -52,96 +53,105 @@ fn main() -> Result<(), iced::Error> {
                 }
                 fn flush(&self) {}
             }
-            let _ = log::set_logger(&StderrLog).map(|_| {
-                log::set_max_level(log::LevelFilter::Info)
-            });
+            let _ = log::set_logger(&StderrLog).map(|_| log::set_max_level(log::LevelFilter::Info));
         }
-        let restarted = std::env::var_os("DBML_UI_RESTARTED").is_some();
-        let arg_file = std::env::args().nth(1);
-        // persisted preferences (vim/Regular) + recent files: load FIRST —
-        // open_file records the recent file and saves the config, which
-        // must run with the loaded prefs, not defaults — and assign them
-        // to EVERY boot path: the splash arm builds a fresh shell whose
-        // defaults would otherwise silently revert vim mode on every
-        // no-argument launch
-        let loaded = config::Config::load();
-        let mut app = match &arg_file {
-            Some(path) => {
-                let mut app = app::App::default();
-                app.config = loaded.clone();
-                match app.open_file(path) {
-                    Ok(()) => {
-                        app.apply_config_mode();
-                        app
+
+        iced::application(
+            || {
+                let restarted = std::env::var_os("DBML_UI_RESTARTED").is_some();
+                let arg_file = std::env::args().nth(1);
+
+                // persisted preferences (vim/Regular) + recent files: load FIRST —
+                // open_file records the recent file and saves the config, which
+                // must run with the loaded prefs, not defaults — and assign them
+                // to EVERY boot path: the splash arm builds a fresh shell whose
+                // defaults would otherwise silently revert vim mode on every
+                // no-argument launch
+                let loaded = config::Config::load();
+
+                // Restore rules (no file argument):
+                // - a clean-exit record reopens its files from disk on ANY start
+                //   (a purposeful close remembered them); paths that fail —
+                //   moved, renamed, deleted — skip silently, and nothing
+                //   restorable boots to the splash screen.
+                // - a crash snapshot restores WITH its unsaved edits only after a
+                //   GPU-loss restart; on a plain launch it is ignored (splash).
+                // the window title follows the active tab's file
+                let mut app = match &arg_file {
+                    Some(path) => {
+                        let mut app = app::App::default();
+                        app.config = loaded.clone();
+                        match app.open_file(path) {
+                            Ok(()) => {
+                                app.apply_config_mode();
+                                app
+                            }
+                            Err(e) => {
+                                eprintln!("cannot open {path}: {e}");
+                                app::App::default()
+                            }
+                        }
                     }
-                    Err(e) => {
-                        eprintln!("cannot open {path}: {e}");
-                        app::App::default()
+                    None => app::App::blank_start(),
+                };
+
+                app.config = loaded;
+
+                if arg_file.is_none() {
+                    if let Some(s) = session::load() {
+                        if s.clean {
+                            app.restore_open_files(s);
+                        } else if restarted {
+                            app.restore_session(s);
+                        }
                     }
                 }
-            }
-            None => app::App::blank_start(),
-        };
-        app.config = loaded;
-        // Restore rules (no file argument):
-        // - a clean-exit record reopens its files from disk on ANY start
-        //   (a purposeful close remembered them); paths that fail —
-        //   moved, renamed, deleted — skip silently, and nothing
-        //   restorable boots to the splash screen.
-        // - a crash snapshot restores WITH its unsaved edits only after a
-        //   GPU-loss restart; on a plain launch it is ignored (splash).
-        if arg_file.is_none() {
-            if let Some(s) = session::load() {
-                if s.clean {
-                    app.restore_open_files(s);
-                } else if restarted {
-                    app.restore_session(s);
-                }
-            }
-        }
-        let _ = &mut app;
-        // the window title follows the active tab's file
-        iced::application(|app: &app::App| app.window_title(), app::update, view::root)
-            .theme(|_| theme::app())
-            // the embedded faces: the mono family for the editor, and the
-            // bold/semibold weights of both families so weight selects
-            // render even where system fonts lack those weights
-            .font(dbml_ui::MONO_TTF)
-            .font(dbml_ui::MONO_TTF_BOLD)
-            .font(dbml_ui::FIRA_SANS_BOLD)
-            .font(dbml_ui::FIRA_SANS_SEMIBOLD)
-            .subscription(app::subscription)
-            // canvas strokes (dash flow, markers, glow) are triangle meshes;
-            // without MSAA every moving stroke rasterizes hard-edged
-            .antialiasing(true)
-            .window(iced::window::Settings {
-                size: iced::Size::new(1400.0, 900.0),
-                // a floor under the layout: overlays, the diagnostics panel
-                // and the diff cells are styled for sane dimensions — the
-                // window cannot shrink past this
-                min_size: Some(iced::Size::new(940.0, 600.0)),
-                // the X button goes through the app's unsaved-changes
-                // confirm instead of killing the process (the GPU-loss
-                // restart path bypasses all of this and self-heals).
-                // NOTE: this lives IN the settings — a later .window()
-                // call replaces the whole struct and silently re-enables
-                // the auto-close (the dialog vanished once that way)
-                exit_on_close_request: false,
-                // the favicon mark as the window/taskbar icon: the 128px
-                // PNG decoded at boot
-                icon: window_icon(),
-                ..Default::default()
-            })
-            .run_with(|| {
+
                 // iced 0.13 never focuses the main window itself, so keyboard
                 // input was ignored until the first click focused it. The main
                 // window is the only one: focus the oldest.
-                let focus = iced::window::get_oldest().then(|id| {
-                    id.map(iced::window::gain_focus)
-                        .unwrap_or_else(iced::Task::none)
-                });
-                (app, focus)
-            })
+                // let focus = iced::window::oldest().then(|id| {
+                //     id.map(iced::window::gain_focus)
+                //         .unwrap_or_else(iced::Task::none)
+                // });
+                // (app, focus)
+                app
+            },
+            app::update,
+            view::root,
+        )
+        .title(|app: &app::App| app.window_title())
+        .theme(|_: &app::App| theme::app())
+        // the embedded faces: the mono family for the editor, and the
+        // bold/semibold weights of both families so weight selects
+        // render even where system fonts lack those weights
+        .font(dbml_ui::MONO_TTF)
+        .font(dbml_ui::MONO_TTF_BOLD)
+        .font(dbml_ui::FIRA_SANS_BOLD)
+        .font(dbml_ui::FIRA_SANS_SEMIBOLD)
+        .subscription(app::subscription)
+        // canvas strokes (dash flow, markers, glow) are triangle meshes;
+        // without MSAA every moving stroke rasterizes hard-edged
+        .antialiasing(true)
+        .window(iced::window::Settings {
+            size: iced::Size::new(1400.0, 900.0),
+            // a floor under the layout: overlays, the diagnostics panel
+            // and the diff cells are styled for sane dimensions — the
+            // window cannot shrink past this
+            min_size: Some(iced::Size::new(940.0, 600.0)),
+            // the X button goes through the app's unsaved-changes
+            // confirm instead of killing the process (the GPU-loss
+            // restart path bypasses all of this and self-heals).
+            // NOTE: this lives IN the settings — a later .window()
+            // call replaces the whole struct and silently re-enables
+            // the auto-close (the dialog vanished once that way)
+            exit_on_close_request: false,
+            // the favicon mark as the window/taskbar icon: the 128px
+            // PNG decoded at boot
+            icon: window_icon(),
+            ..Default::default()
+        })
+        .run()
     };
     // wgpu 0.19 PANICS (no error path) when the GPU device dies under a
     // live surface — which happens when the screen blanks / the machine
@@ -193,9 +203,13 @@ mod tests {
     fn gpu_device_loss_matches_the_wgpu_panic_and_nothing_else() {
         let real = "Error in Surface::get_current_texture_view: Validation Error\n\nCaused by:\n  Parent device is lost";
         assert!(is_gpu_device_loss(real));
-        assert!(is_gpu_device_loss("Error in Surface::get_current_texture_view: Timeout"));
+        assert!(is_gpu_device_loss(
+            "Error in Surface::get_current_texture_view: Timeout"
+        ));
         // unrelated panics must re-raise, not restart
-        assert!(!is_gpu_device_loss("called `Option::unwrap()` on a `None` value"));
+        assert!(!is_gpu_device_loss(
+            "called `Option::unwrap()` on a `None` value"
+        ));
         assert!(!is_gpu_device_loss(""));
     }
 }

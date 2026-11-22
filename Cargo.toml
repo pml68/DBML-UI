@@ -1,8 +1,9 @@
 [package]
 name = "dbml-ui"
 version = "0.2.2"
-edition = "2021"
+edition = "2024"
 license = "MIT"
+rust-version = "1.92"
 
 # iced 0.13 canvas-text clipping holes (both backends):
 # - tiny_skia never clips canvas text at all ("TODO: Honor layering!" —
@@ -15,17 +16,18 @@ license = "MIT"
 #   with text stamped; both drafts clamp now.
 # (iced_wgpu 0.13.5 already stamps the clip in fill_text — it only
 # needed the draft clamp.)
-[patch.crates-io]
-iced_tiny_skia = { path = "vendor/iced_tiny_skia" }
-iced_wgpu = { path = "vendor/iced_wgpu" }
+# [patch.crates-io]
+# iced_tiny_skia = { path = "vendor/iced_tiny_skia" }
+# iced_wgpu = { path = "vendor/iced_wgpu" }
 
 [dependencies]
-iced_tiny_skia = { path = "vendor/iced_tiny_skia" }
+# iced_tiny_skia = { path = "vendor/iced_tiny_skia" }
+iced_tiny_skia = "0.14"
 serde_json = "1"
-boa_engine = "0.19"
+boa_engine = "0.22"
 # measured text widths for the diagram's icon clusters: shape through the
 # same stack iced renders with (version pinned to iced's own copy)
-cosmic-text = "0.12.1"
+cosmic-text = "0.19.0"
 anyhow = "1.0.104"
 # The popups' text renders through widget paragraphs (PopupTextLayer)
 # because canvas geometry text does not render inside `with_layer` layers
@@ -33,22 +35,25 @@ anyhow = "1.0.104"
 # embeds the default UI font. The renderer is wgpu (with the tiny-skia
 # fallback iced activates when the adapter request fails). The theme is
 # hardcoded Dark (theme::app), so auto-detect-theme stays off.
-iced = { version = "=0.13.1", default-features = false, features = [
-    "advanced",
-    "canvas",
-    "smol",
-    "svg",
-    "wgpu",
-    "tiny-skia",
-    "fira-sans",
+iced = { version = "=0.14.0", default-features = false, features = [
+  "advanced",
+  "canvas",
+  "smol",
+  "svg",
+  "wgpu",
+  "tiny-skia",
+  "fira-sans",
+  "x11",
+  "wayland",
+  "crisp",
 ] }
 # MSRV pins for rustc 1.84: newer releases of these crates require 1.85+.
-image = { version = "=0.25.6", default-features = false, features = ["png"] }
-regex = "1.13.1"
-resvg = { version = "0.45.1", features = ["raster-images", "text"] }
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+regex = "1.13.2"
+resvg = { version = "=0.46", features = ["raster-images", "text"] }
+unicode-width = "0.2.3"
 tiny-skia = "0.11.4"
-unicode-width = "=0.2.0"
-usvg = "0.45.1"
+usvg = "=0.46"
 
 # System-clipboard text (copy/paste) on X11/Wayland/Windows/macOS. Text
 # only: no image-data feature. Unreachable clipboards (headless CI, SSH)
@@ -57,7 +62,7 @@ arboard = { version = "3.7", default-features = false }
 # Native file dialogs (Save As, exports): GTK on Linux, native
 # on Windows/macOS. XDG portal compatibility via the async-xdg
 # feature is not needed — the blocking API runs off the UI thread.
-rfd = { version = "0.15", default-features = false, features = ["gtk3"] }
+rfd = { version = "0.18", default-features = false, features = ["gtk3"] }
 # iced's runtime (smol feature); also hands the file-picker thread's result
 # back to the update loop
 smol = "2"
@@ -68,19 +73,19 @@ log = "0.4"
 [build-dependencies]
 # embeds icons/app-icon.ico into the exe (build.rs gates on the target —
 # winresource only compiles for windows hosts' cross builds of it)
-winresource = "=0.1.17"
+winresource = "=0.1.34"
 
 # X11 keymap query for the physical-ctrl bridge (left-ctrl chords under DE
 # modifier grabs): already in the tree as winit's X11 backend, so this adds
 # no new compilation.
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
-x11rb = { version = "0.13", features = ["xkb"] }
+x11rb = { version = "0.14", features = ["xkb", "xinput"] }
 # (the same crate raises the rfd save dialogs to the front)
 
 # XTEST injection for the key-replay example (examples/xtest_repro.rs):
 # dev-only, so the shipped binary keeps its feature set.
 [target.'cfg(all(unix, not(target_os = "macos")))'.dev-dependencies]
-x11rb = { version = "0.13", features = ["xtest", "xkb"] }
+x11rb = { version = "0.14", features = ["xtest", "xkb"] }
 
 # Per-frame CPU work (lyon tessellation, cosmic-text shaping, glyph atlas
 # uploads) shrinks measurably under LTO + one codegen unit.
@@ -94,5 +99,6 @@ codegen-units = 16
 incremental = true
 
 [dev-dependencies]
-iced_tiny_skia = { path = "vendor/iced_tiny_skia" }
+# iced_tiny_skia = { path = "vendor/iced_tiny_skia" }
+iced_tiny_skia = "0.14"
 serde = { version = "1", features = ["derive"] }

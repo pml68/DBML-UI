@@ -3,8 +3,8 @@
 //! wrapped text), floating above the tables in z-order and auto-placed
 //! in a row below the diagram content. Agent-owned file.
 
-use dbml_ui::layout::wrap_chars;
 use crate::canvas::diagram::{cell_size, to_px, visible_region};
+use dbml_ui::layout::wrap_chars;
 use dbml_ui::layout::{Layout, NoteBox};
 use iced::widget::canvas::{self, Path, Text};
 use iced::{alignment, Color, Font, Point, Rectangle, Size, Vector};
@@ -48,12 +48,7 @@ fn corner_hit_px(zoom: f32) -> f32 {
 /// The sticky note under a canvas point, if any: stickies float above
 /// the tables, so their press drags the note (the app routes before the
 /// table hit-test).
-pub fn note_hit(
-    layout: &Layout,
-    zoom: f32,
-    pan: Vector,
-    p: iced::Point,
-) -> Option<&NoteBox> {
+pub fn note_hit(layout: &Layout, zoom: f32, pan: Vector, p: iced::Point) -> Option<&NoteBox> {
     // doc order reversed: the schema-last sticky containing the point —
     // NOT raise order (hit_topmost layers that on top)
     layout
@@ -160,10 +155,7 @@ pub fn note_hover_chrome(
     let hit = corner_hit_px(zoom);
     pointer.is_some_and(|p| {
         let tl = crate::canvas::diagram::to_px(note.rect.0, note.rect.1, zoom, pan);
-        let size = Size::new(
-            note.rect.2 as f32 * s.width,
-            note.rect.3 as f32 * s.height,
-        );
+        let size = Size::new(note.rect.2 as f32 * s.width, note.rect.3 as f32 * s.height);
         p.x >= tl.x - hit
             && p.x <= tl.x + size.width + hit
             && p.y >= tl.y - hit
@@ -231,15 +223,18 @@ pub fn draw_note(
     let draw_texts = |f: &mut canvas::Frame, at: Point| {
         let pad = 0.4 * s.width;
         let max_lines = ((size.height / line_h).floor() as usize).max(1);
-        for (i, line) in note_lines(&note.text, wrap_cols, max_lines).iter().enumerate() {
+        for (i, line) in note_lines(&note.text, wrap_cols, max_lines)
+            .iter()
+            .enumerate()
+        {
             f.fill_text(Text {
                 content: line.clone(),
                 position: Point::new(at.x + pad, at.y + pad + (i as f32 + 0.5) * line_h),
                 color: NOTE_TEXT,
                 size: (0.6 * zoom).into(),
                 font: Font::DEFAULT,
-                horizontal_alignment: alignment::Horizontal::Left,
-                vertical_alignment: alignment::Vertical::Center,
+                align_x: iced::advanced::text::Alignment::Left,
+                align_y: alignment::Vertical::Center,
                 ..Default::default()
             });
         }
@@ -382,10 +377,7 @@ mod tests {
         // the EXACT corner pixel grabs (note_hit's interior test used to
         // exclude the right/bottom edges, leaving the handle half dead)
         let grabbed = note_corner_hit(&l, zoom, pan, br).expect("the exact corner grabs");
-        assert!(matches!(
-            grabbed.1,
-            crate::app::StickyCorner::BottomRight
-        ));
+        assert!(matches!(grabbed.1, crate::app::StickyCorner::BottomRight));
         // the drawn square reaches 6px out; the zone, 9px: just outside
         // the sticky still grabs
         let outside = Point::new(br.x + 5.0, br.y + 5.0);

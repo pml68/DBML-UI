@@ -207,7 +207,10 @@ impl Engine {
                         let edits = q["edits"].as_array().cloned().unwrap_or_default();
                         let (start, end, new_text) = match edits.first() {
                             Some(e) => (
-                                utf16_offset_to_byte(src, e["start"].as_u64().unwrap_or(0) as usize),
+                                utf16_offset_to_byte(
+                                    src,
+                                    e["start"].as_u64().unwrap_or(0) as usize,
+                                ),
                                 utf16_offset_to_byte(src, e["end"].as_u64().unwrap_or(0) as usize),
                                 e["newText"].as_str().unwrap_or("").to_string(),
                             ),
@@ -265,12 +268,12 @@ impl BoaDiag {
 }
 
 pub struct Request {
-    pub gen: u64,
+    pub generation: u64,
     pub src: String,
 }
 
 pub struct Reply {
-    pub gen: u64,
+    pub generation: u64,
     pub diags: Vec<BoaDiag>,
 }
 
@@ -290,7 +293,13 @@ fn spawn_worker() -> (Sender<Request>, Mutex<Receiver<Reply>>) {
                 req = newer;
             }
             let diags = engine.parse(&req.src);
-            if tx_out.send(Reply { gen: req.gen, diags }).is_err() {
+            if tx_out
+                .send(Reply {
+                    generation: req.generation,
+                    diags,
+                })
+                .is_err()
+            {
                 return;
             }
         }
@@ -307,8 +316,8 @@ pub fn worker() -> &'static (Sender<Request>, Mutex<Receiver<Reply>>) {
 
 /// Kick a diagnostics request (non-blocking). `gen` = the caller's
 /// monotonically increasing document generation.
-pub fn request(gen: u64, src: String) {
-    let _ = worker().0.send(Request { gen, src });
+pub fn request(generation: u64, src: String) {
+    let _ = worker().0.send(Request { generation, src });
 }
 
 /// The reply as the app-facing diagnostics.
@@ -344,7 +353,9 @@ mod tests {
         let src = "Table posts {\n  id int\n  user_id integer [not null\n}\nRef r: posts.user_id > users.id\n";
         let diags = e.parse(src);
         assert!(
-            !diags.iter().any(|d| d.message.contains("'user_id' does not exist")),
+            !diags
+                .iter()
+                .any(|d| d.message.contains("'user_id' does not exist")),
             "their recovery keeps user_id bound: {diags:?}"
         );
     }

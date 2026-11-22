@@ -19,8 +19,11 @@ use crate::app::RaisedItem;
 use crate::theme;
 use std::collections::HashMap;
 
-use dbml_ui::layout::{many_ends, row_icon_path, wrap_chars, EdgeRoute, Layout, NoteBox, Row, RowIcon, NOTE_ICON, TableBox};
-use iced::widget::canvas::{self, Path, Stroke, Text};
+use dbml_ui::layout::{
+    many_ends, row_icon_path, wrap_chars, EdgeRoute, Layout, NoteBox, Row, RowIcon, TableBox,
+    NOTE_ICON,
+};
+use iced::widget::canvas::{self, Action, Path, Stroke, Text};
 use iced::{font, Color, Font, Point, Rectangle, Size, Vector};
 
 /// Diagram cells around the content (matches the SVG renderer's margin).
@@ -147,9 +150,9 @@ fn shaper() -> std::sync::MutexGuard<'static, TextShaper> {
         ] {
             font_system
                 .db_mut()
-                .load_font_source(cosmic_text::fontdb::Source::Binary(
-                    std::sync::Arc::new(bytes.to_vec()),
-                ));
+                .load_font_source(cosmic_text::fontdb::Source::Binary(std::sync::Arc::new(
+                    bytes.to_vec(),
+                )));
         }
         std::sync::Mutex::new(TextShaper {
             font_system,
@@ -171,12 +174,17 @@ fn shape_width_px(
     use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Weight};
     let mut buffer = Buffer::new(
         font_system,
-        Metrics { font_size: size, line_height: size },
+        Metrics {
+            font_size: size,
+            line_height: size,
+        },
     );
-    let attrs = Attrs::new()
-        .family(Family::SansSerif)
-        .weight(if bold { Weight::BOLD } else { Weight::NORMAL });
-    buffer.set_text(font_system, text, attrs, Shaping::Advanced);
+    let attrs = Attrs::new().family(Family::SansSerif).weight(if bold {
+        Weight::BOLD
+    } else {
+        Weight::NORMAL
+    });
+    buffer.set_text(text, &attrs, Shaping::Advanced, None);
     buffer.shape_until_scroll(font_system, true);
     let mut end = 0.0f32;
     for run in buffer.layout_runs() {
@@ -207,8 +215,7 @@ fn row_name_end_px(b: &TableBox, row: usize, zoom: f32, pan: Vector) -> f32 {
     // draw pass uses (pk rows bold, see draw_rows) — the gap after it is
     // therefore IDENTICAL for every row, which estimates could never be
     let row_size = 0.55 * s.height;
-    top_left.x + 1.0 * s.width
-        + measured_name_px(&b.rows[row].name, b.rows[row].pk, row_size)
+    top_left.x + 1.0 * s.width + measured_name_px(&b.rows[row].name, b.rows[row].pk, row_size)
 }
 
 /// The box's frame-px rect (the paint bounds, shadows excluded).
@@ -227,10 +234,7 @@ fn note_rect_px(note: &NoteBox, zoom: f32, pan: Vector) -> Rectangle {
     let (x, y, w, h) = note.rect;
     let top_left = to_px(x, y, zoom, pan);
     let s = cell_size(zoom);
-    Rectangle::new(
-        top_left,
-        Size::new(w as f32 * s.width, h as f32 * s.height),
-    )
+    Rectangle::new(top_left, Size::new(w as f32 * s.width, h as f32 * s.height))
 }
 
 /// `rect` minus ALL `occluders`: the region a covered table still
@@ -408,12 +412,7 @@ pub fn enum_hit(layout: &Layout, zoom: f32, pan: Vector, p: Point) -> Option<(&T
 /// band when the records glyph shares the header). The glyph only shows
 /// while the header is hovered, and a click on it is what opens the
 /// color menu.
-pub fn palette_icon_hit(
-    layout: &Layout,
-    zoom: f32,
-    pan: Vector,
-    p: Point,
-) -> Option<&TableBox> {
+pub fn palette_icon_hit(layout: &Layout, zoom: f32, pan: Vector, p: Point) -> Option<&TableBox> {
     let b = hit_test(layout, zoom, pan, p)?;
     let s = cell_size(zoom);
     let top_left = to_px(b.x, b.y, zoom, pan);
@@ -432,11 +431,7 @@ pub fn palette_icon_hit(
 /// tall, which is why the center and the two half-extents are computed
 /// together (a square hit zone around the band center let the drawn icon
 /// hang past the header's right edge).
-fn palette_icon_geometry(
-    b: &TableBox,
-    top_left: Point,
-    s: Size,
-) -> (Point, f32, f32) {
+fn palette_icon_geometry(b: &TableBox, top_left: Point, s: Size) -> (Point, f32, f32) {
     let right = top_left.x + b.w as f32 * s.width - 0.6 * s.width;
     // the wheel ALWAYS owns the header's rightmost slot (records sits to
     // its LEFT — see records_band), so the color glyph never jumps when
@@ -556,8 +551,7 @@ pub fn icon_tooltip(icon: RowIcon) -> Option<String> {
 /// pill alongside the field card when the row also qualifies for one:
 /// the overlay draws the card first, the pill on top.
 fn icon_tooltip_line(layout: &Layout, zoom: f32, pan: Vector, p: Point) -> Option<String> {
-    marker_icon_hit(layout, zoom, pan, p)
-        .and_then(|(_, _, icon)| icon_tooltip(icon))
+    marker_icon_hit(layout, zoom, pan, p).and_then(|(_, _, icon)| icon_tooltip(icon))
 }
 
 fn header_color(b: &TableBox) -> Color {
@@ -613,10 +607,10 @@ impl canvas::Program<crate::app::Message> for Diagram<'_> {
     fn update(
         &self,
         _state: &mut Self::State,
-        event: canvas::Event,
+        event: &canvas::Event,
         bounds: Rectangle,
         cursor: iced::mouse::Cursor,
-    ) -> (canvas::event::Status, Option<crate::app::Message>) {
+    ) -> Option<Action<crate::app::Message>> {
         use crate::app::Message;
         use iced::mouse;
 
@@ -632,13 +626,14 @@ impl canvas::Program<crate::app::Message> for Diagram<'_> {
             over
         };
 
-        let (status, message) = match event {
-            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => (
-                canvas::event::Status::Captured,
-                over.map(Message::CanvasPressed),
+        return match event {
+            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => Some(
+                over.map(Message::CanvasPressed)
+                    .map(Action::publish)
+                    .unwrap_or_else(Action::capture)
+                    .and_capture(),
             ),
-            canvas::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => (
-                canvas::event::Status::Captured,
+            canvas::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => Some(
                 // while a drag is in flight the release ENDS it
                 // unconditionally: Wayland's implicit grab delivers the
                 // release outside the surface, where iced's cursor is
@@ -648,38 +643,40 @@ impl canvas::Program<crate::app::Message> for Diagram<'_> {
                 // (CanvasReleasedEnd); inside, the tracked path is exact.
                 tracked
                     .map(Message::CanvasReleased)
-                    .or_else(|| self.dragging.then_some(Message::CanvasReleasedEnd)),
+                    .or_else(|| self.dragging.then_some(Message::CanvasReleasedEnd))
+                    .map(Action::publish)
+                    .unwrap_or_else(Action::capture)
+                    .and_capture(),
             ),
-            canvas::Event::Mouse(mouse::Event::CursorMoved { .. }) => (
-                canvas::event::Status::Ignored,
-                if self.dragging {
-                    // a diagram drag keeps tracking past the pane edges
-                    tracked.map(Message::CanvasMoved)
-                } else {
-                    // hover tracks enter/leave like the editor's tooltip:
-                    // a move over another pane (or out of the window)
-                    // drops every hover effect — a quick hop to the
-                    // editor used to leave the border, cards, handle and
-                    // edge glow painted
-                    Some(match tracked {
-                        Some(p) => Message::CanvasMoved(p),
-                        None => Message::CanvasLeft,
-                    })
-                },
-            ),
+            canvas::Event::Mouse(mouse::Event::CursorMoved { .. }) => if self.dragging {
+                // a diagram drag keeps tracking past the pane edges
+                tracked.map(Message::CanvasMoved)
+            } else {
+                // hover tracks enter/leave like the editor's tooltip:
+                // a move over another pane (or out of the window)
+                // drops every hover effect — a quick hop to the
+                // editor used to leave the border, cards, handle and
+                // edge glow painted
+                Some(match tracked {
+                    Some(p) => Message::CanvasMoved(p),
+                    None => Message::CanvasLeft,
+                })
+            }
+            .map(Action::publish),
             canvas::Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
                 let notches = match delta {
-                    mouse::ScrollDelta::Lines { y, .. } => y,
+                    mouse::ScrollDelta::Lines { y, .. } => *y,
                     mouse::ScrollDelta::Pixels { y, .. } => y / 40.0,
                 };
-                (
-                    canvas::event::Status::Captured,
-                    over.map(|_| Message::Wheel(notches)),
+                Some(
+                    over.map(|_| Message::Wheel(notches))
+                        .map(Action::publish)
+                        .unwrap_or_else(Action::capture)
+                        .and_capture(),
                 )
             }
-            _ => (canvas::event::Status::Ignored, None),
+            _ => None,
         };
-        (status, message)
     }
 
     fn draw(
@@ -745,13 +742,9 @@ impl canvas::Program<crate::app::Message> for Diagram<'_> {
                     // resize axis); a body press drags the sticky. The
                     // corner must belong to the TOPMOST note: a doc-order
                     // scan could return a lower sticky's corner.
-                    if let Some((_, corner)) = super::notes::note_corner_hit(
-                        self.layout,
-                        self.zoom,
-                        self.pan,
-                        local,
-                    )
-                    .filter(|(h, _)| h.name == top.name)
+                    if let Some((_, corner)) =
+                        super::notes::note_corner_hit(self.layout, self.zoom, self.pan, local)
+                            .filter(|(h, _)| h.name == top.name)
                     {
                         // NW/SE corners take the nwse cursor (iced's
                         // DiagonallyDown), NE/SW the nesw one
@@ -968,9 +961,10 @@ pub(crate) fn paint_items<'a>(
     // the dragged table paints after its raised lines AND after every
     // note: pull it to the very end
     if let Some(title) = drag_table {
-        if let Some(i) = seq.iter().position(
-            |item| matches!(item, PaintItem::Table(b) if b.title == title),
-        ) {
+        if let Some(i) = seq
+            .iter()
+            .position(|item| matches!(item, PaintItem::Table(b) if b.title == title))
+        {
             let dragged = seq.remove(i);
             seq.push(dragged);
         }
@@ -978,13 +972,7 @@ pub(crate) fn paint_items<'a>(
     seq
 }
 
-fn paint(
-    frame: &mut canvas::Frame,
-    layout: &Layout,
-    zoom: f32,
-    pan: Vector,
-    hs: &HoverState<'_>,
-) {
+fn paint(frame: &mut canvas::Frame, layout: &Layout, zoom: f32, pan: Vector, hs: &HoverState<'_>) {
     // the dragged table's own lines stay beneath while idle; while its
     // drag is live they are pulled out and re-painted ABOVE the tables
     // (back beneath on release — dbdiagram's drag behavior)
@@ -992,12 +980,12 @@ fn paint(
     // the hover border belongs to the TOPMOST table: a table under a
     // sticky (or under a raised table) must not light up because the
     // pointer crossed its hidden area
-    let hovered = hs.pointer.and_then(|p| {
-        match hit_topmost(layout, zoom, pan, p, hs.item_z) {
+    let hovered = hs
+        .pointer
+        .and_then(|p| match hit_topmost(layout, zoom, pan, p, hs.item_z) {
             Some(PaintItem::Table(b)) => Some(b),
             _ => None,
-        }
-    });
+        });
     // the hovered column row (dbdiagram tints it); only when its box is
     // the hovered one
     // rows to tint: the hovered row, plus BOTH endpoint rows of every
@@ -1060,12 +1048,12 @@ fn paint(
     // the topmost note at the pointer: only IT draws its drag handles
     // (a buried sticky's envelope must not sprout handles under the
     // item covering it)
-    let hover_note = hs.pointer.and_then(|p| {
-        match hit_topmost(layout, zoom, pan, p, hs.item_z) {
+    let hover_note = hs
+        .pointer
+        .and_then(|p| match hit_topmost(layout, zoom, pan, p, hs.item_z) {
             Some(PaintItem::Note(n)) => Some(n.name.as_str()),
             _ => None,
-        }
-    });
+        });
     // iced draws ALL of a canvas's text above ALL of its geometry (the
     // renderer emits meshes first, then the text stack), so paint order
     // alone cannot hide an overlapped table's text — the covered table's
@@ -1098,9 +1086,27 @@ fn paint(
                     .filter(|(n, _)| *n == b.node)
                     .map(|(_, r)| *r)
                     .collect();
-                paint_table(frame, b, zoom, pan, is_hovered, &rows, rect.position(), false);
+                paint_table(
+                    frame,
+                    b,
+                    zoom,
+                    pan,
+                    is_hovered,
+                    &rows,
+                    rect.position(),
+                    false,
+                );
                 if occluders.is_empty() {
-                    paint_table(frame, b, zoom, pan, is_hovered, &rows, rect.position(), true);
+                    paint_table(
+                        frame,
+                        b,
+                        zoom,
+                        pan,
+                        is_hovered,
+                        &rows,
+                        rect.position(),
+                        true,
+                    );
                 } else {
                     let visible = visible_region(rect, &occluders);
                     for sliver in &visible {
@@ -1186,8 +1192,26 @@ fn paint(
                 .filter(|(n, _)| *n == b.node)
                 .map(|(_, r)| *r)
                 .collect();
-            paint_table(frame, b, zoom, pan, is_hovered, &rows, rect.position(), false);
-            paint_table(frame, b, zoom, pan, is_hovered, &rows, rect.position(), true);
+            paint_table(
+                frame,
+                b,
+                zoom,
+                pan,
+                is_hovered,
+                &rows,
+                rect.position(),
+                false,
+            );
+            paint_table(
+                frame,
+                b,
+                zoom,
+                pan,
+                is_hovered,
+                &rows,
+                rect.position(),
+                true,
+            );
         }
     }
 }
@@ -1308,7 +1332,17 @@ fn paint_edge(
         // so the flow reads referenced key → foreign key. Their dash
         // color is the line's brightened 1.2x.
         let phase = hs_clock(clock) * zoom / 20.0;
-        paint_flow(frame, &pts, r, phase, t, (trim_fk, trim_ref), zoom, hover_color, 4.0 * k);
+        paint_flow(
+            frame,
+            &pts,
+            r,
+            phase,
+            t,
+            (trim_fk, trim_ref),
+            zoom,
+            hover_color,
+            4.0 * k,
+        );
     } else {
         frame.stroke(&path, core);
     }
@@ -1323,7 +1357,6 @@ fn paint_edge(
     } else {
         one_tick(frame, pts[n - 1], pts[n - 2], zoom, core);
     }
-
 }
 fn hs_clock(clock: f32) -> f32 {
     // their createAnimation: dashOffset = time_ms / 30 → ~33.3 px/s at 1:1
@@ -1344,13 +1377,7 @@ fn hs_clock(clock: f32) -> f32 {
 /// The highlighted route's gaussian glow: nested translucent rings in
 /// the line's brightened highlight color, MSAA blends the bands into a
 /// smooth falloff (f529342's paint_glow, restored verbatim).
-fn paint_glow(
-    frame: &mut canvas::Frame,
-    path: &Path,
-    zoom: f32,
-    t: f32,
-    hover_color: Color,
-) {
+fn paint_glow(frame: &mut canvas::Frame, path: &Path, zoom: f32, t: f32, hover_color: Color) {
     let k = zoom / 20.0;
     for (w, a) in [
         (2.0, 0.16),
@@ -1421,7 +1448,7 @@ fn dash_windows(phase: f32, cycle: f32, dash: f32, lo: f32, hi: f32) -> Vec<(f32
 }
 
 fn lerp_color(a: Color, b: Color, t: f32) -> Color {
-    Color::new(
+    Color::from_rgba(
         a.r + (b.r - a.r) * t,
         a.g + (b.g - a.g) * t,
         a.b + (b.b - a.b) * t,
@@ -1430,7 +1457,10 @@ fn lerp_color(a: Color, b: Color, t: f32) -> Color {
 }
 
 fn with_alpha(c: Color, a: f32) -> Color {
-    Color { a: a.clamp(0.0, 1.0), ..c }
+    Color {
+        a: a.clamp(0.0, 1.0),
+        ..c
+    }
 }
 
 /// One segment of the filleted orthogonal path: a straight run or a
@@ -1517,10 +1547,7 @@ fn flatten_pieces(pieces: &[Piece]) -> Flat {
         for k in 1..=steps {
             let t = k as f32 / steps as f32;
             let p = match quad {
-                None => Point::new(
-                    a.x + (b.x - a.x) * t,
-                    a.y + (b.y - a.y) * t,
-                ),
+                None => Point::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t),
                 Some(c) => {
                     let mt = 1.0 - t;
                     Point::new(
@@ -1544,7 +1571,10 @@ fn flatten_pieces(pieces: &[Piece]) -> Flat {
 /// The path point at arc distance `s` (linear within the sampled pieces).
 fn flat_point(flat: &Flat, s: f32) -> Point {
     let s = s.clamp(0.0, flat.total);
-    let idx = match flat.pts.binary_search_by(|(_, d)| d.partial_cmp(&s).unwrap()) {
+    let idx = match flat
+        .pts
+        .binary_search_by(|(_, d)| d.partial_cmp(&s).unwrap())
+    {
         Ok(i) => i,
         Err(i) => i.saturating_sub(1),
     };
@@ -1594,7 +1624,12 @@ fn stroke_arc_range(
 
 /// Multiply an RGB color's brightness by `f` (their colorFactor brighten).
 fn brighten(c: Color, f: f32) -> Color {
-    Color::new((c.r * f).min(1.0), (c.g * f).min(1.0), (c.b * f).min(1.0), c.a)
+    Color::from_rgba(
+        (c.r * f).min(1.0),
+        (c.g * f).min(1.0),
+        (c.b * f).min(1.0),
+        c.a,
+    )
 }
 
 fn edge_stroke(zoom: f32) -> Stroke<'static> {
@@ -1652,10 +1687,7 @@ fn many_marker(frame: &mut canvas::Frame, end: Point, inner: Point, zoom: f32, s
             ..stroke
         },
     );
-    frame.stroke(
-        &Path::circle(end + d * (13.0 * k), 3.0 * k),
-        stroke,
-    );
+    frame.stroke(&Path::circle(end + d * (13.0 * k), 3.0 * k), stroke);
 }
 
 /// Edge stroke thickness at `zoom`: proportional above 1:1, but never
@@ -1678,19 +1710,31 @@ pub(crate) const CIRCLES_ICON: [(f32, f32, f32, Color); 3] = [
         166.0,
         366.0,
         166.0,
-        Color::from_rgb(0x6D as f32 / 255.0, 0xBB as f32 / 255.0, 0x68 as f32 / 255.0),
+        Color::from_rgb(
+            0x6D as f32 / 255.0,
+            0xBB as f32 / 255.0,
+            0x68 as f32 / 255.0,
+        ),
     ),
     (
         412.0,
         366.0,
         166.0,
-        Color::from_rgb(0xFF as f32 / 255.0, 0x41 as f32 / 255.0, 0x46 as f32 / 255.0),
+        Color::from_rgb(
+            0xFF as f32 / 255.0,
+            0x41 as f32 / 255.0,
+            0x46 as f32 / 255.0,
+        ),
     ),
     (
         277.0,
         165.0,
         166.0,
-        Color::from_rgb(0x00 as f32 / 255.0, 0x9F as f32 / 255.0, 0xF3 as f32 / 255.0),
+        Color::from_rgb(
+            0x00 as f32 / 255.0,
+            0x9F as f32 / 255.0,
+            0xF3 as f32 / 255.0,
+        ),
     ),
 ];
 pub(crate) const CIRCLES_VIEWBOX: (f32, f32) = (578.0, 531.0);
@@ -1703,7 +1747,8 @@ pub(crate) const CIRCLES_VIEWBOX: (f32, f32) = (578.0, 531.0);
 /// The records affordance glyph (a table with rows), used at the right
 /// end of the header of a records-bearing table on hover, on an 18px grid.
 const TABLE_RING_ICON: &str = "M18 2c0-1.103-.897-2-2-2H2c-1.103 0-2 .897-2 2v14c0 1.103.897 2 2 2h14c1.103 0 2-.897 2-2zM2 16V2h14l.002 14z";
-const TABLE_ROWS_ICON: &str = "M4 4h1.998v2H4zm4 0h6v2h-6zm-4 4h1.998v2H4zm4 0h6v2h-6zm-4 4h1.998v2H4zm4 0h6v2h-6z";
+const TABLE_ROWS_ICON: &str =
+    "M4 4h1.998v2H4zm4 0h6v2h-6zm-4 4h1.998v2H4zm4 0h6v2h-6zm-4 4h1.998v2H4zm4 0h6v2h-6z";
 /// Tokenize SVG path data into (command, params) pairs.
 fn svg_path_cmds(data: &str) -> Vec<(u8, Vec<f32>)> {
     let b = data.as_bytes();
@@ -1723,9 +1768,7 @@ fn svg_path_cmds(data: &str) -> Vec<(u8, Vec<f32>)> {
             // compact SVG notation glues the next number's dot to the
             // previous one ("1.103.897" = 1.103, .897) — one dot per number
             let mut dot = false;
-            while i < b.len()
-                && (b[i].is_ascii_digit() || (b[i] == b'.' && !dot))
-            {
+            while i < b.len() && (b[i].is_ascii_digit() || (b[i] == b'.' && !dot)) {
                 dot |= b[i] == b'.';
                 i += 1;
             }
@@ -1752,9 +1795,17 @@ fn svg_group(cmd: u8) -> usize {
 
 /// Fill an icon authored as SVG path data (dbdiagram's Path2D strings),
 /// scaled from its `grid` to `size` px and centered on `center`.
-pub(crate) fn svg_icon(frame: &mut canvas::Frame, center: Point, size: f32, grid: f32, color: Color, data: &str) {
+pub(crate) fn svg_icon(
+    frame: &mut canvas::Frame,
+    center: Point,
+    size: f32,
+    grid: f32,
+    color: Color,
+    data: &str,
+) {
     let k = size / grid;
-    let px = |x: f32, y: f32| Point::new(center.x - size / 2.0 + x * k, center.y - size / 2.0 + y * k);
+    let px =
+        |x: f32, y: f32| Point::new(center.x - size / 2.0 + x * k, center.y - size / 2.0 + y * k);
     let cmds = svg_path_cmds(data);
     let path = Path::new(|b| {
         let (mut x, mut y, mut sx, mut sy) = (0.0f32, 0.0f32, 0.0f32, 0.0f32);
@@ -1848,11 +1899,7 @@ pub(crate) fn svg_icon(frame: &mut canvas::Frame, center: Point, size: f32, grid
                             ex += x;
                             ey += y;
                         }
-                        b.bezier_curve_to(
-                            px(2.0 * x - qx, 2.0 * y - qy),
-                            px(x2, y2),
-                            px(ex, ey),
-                        );
+                        b.bezier_curve_to(px(2.0 * x - qx, 2.0 * y - qy), px(x2, y2), px(ex, ey));
                         x = ex;
                         y = ey;
                         qx = x2;
@@ -1901,56 +1948,56 @@ fn paint_table(
     // pass's icons, tints and pill backgrounds (exactly the regression
     // where uncovered tables lost their icons until covered).
     if !text_pass {
-    // soft drop shadow: the canvas has no blur, so two stacked offset
-    // fills fake the falloff (dbdiagram boxes float on the canvas)
-    let sh = 0.22 * s.height;
-    frame.fill_rectangle(
-        top_left + Vector::new(0.45 * sh, 0.8 * sh),
-        size,
-        Color::from_rgba(0.0, 0.0, 0.0, 0.30),
-    );
-    frame.fill_rectangle(
-        top_left + Vector::new(0.9 * sh, 1.6 * sh),
-        size,
-        Color::from_rgba(0.0, 0.0, 0.0, 0.13),
-    );
+        // soft drop shadow: the canvas has no blur, so two stacked offset
+        // fills fake the falloff (dbdiagram boxes float on the canvas)
+        let sh = 0.22 * s.height;
+        frame.fill_rectangle(
+            top_left + Vector::new(0.45 * sh, 0.8 * sh),
+            size,
+            Color::from_rgba(0.0, 0.0, 0.0, 0.30),
+        );
+        frame.fill_rectangle(
+            top_left + Vector::new(0.9 * sh, 1.6 * sh),
+            size,
+            Color::from_rgba(0.0, 0.0, 0.0, 0.13),
+        );
 
-    // body: sharp corners, thin darker border (dbdiagram's boxes are square)
-    let body = Path::rectangle(top_left, size);
-    frame.fill(&body, theme::TABLE_BG);
-    let border_w = if hovered {
-        2.0
-    } else {
-        (zoom / 20.0).clamp(1.0, 2.5)
-    };
-    // header band first: solid near-black, full-width, with a hairline
-    // below it — the body border strokes LAST so the band never thins it
-    let band = Size::new(size.width, s.height);
-    frame.fill_rectangle(top_left, band, theme::readable_band(header_color(b)));
-    frame.stroke(
-        &body,
-        Stroke {
-            style: if hovered {
-                theme::TABLE_HOVER_BORDER
-            } else {
-                theme::TABLE_BORDER
-            }
-            .into(),
-            width: border_w,
-            ..Default::default()
-        },
-    );
-    frame.stroke(
-        &Path::new(|bd| {
-            bd.move_to(Point::new(top_left.x, top_left.y + s.height));
-            bd.line_to(Point::new(top_left.x + size.width, top_left.y + s.height));
-        }),
-        Stroke {
-            style: theme::TABLE_BORDER.into(),
-            width: 1.0,
-            ..Default::default()
-        },
-    );
+        // body: sharp corners, thin darker border (dbdiagram's boxes are square)
+        let body = Path::rectangle(top_left, size);
+        frame.fill(&body, theme::TABLE_BG);
+        let border_w = if hovered {
+            2.0
+        } else {
+            (zoom / 20.0).clamp(1.0, 2.5)
+        };
+        // header band first: solid near-black, full-width, with a hairline
+        // below it — the body border strokes LAST so the band never thins it
+        let band = Size::new(size.width, s.height);
+        frame.fill_rectangle(top_left, band, theme::readable_band(header_color(b)));
+        frame.stroke(
+            &body,
+            Stroke {
+                style: if hovered {
+                    theme::TABLE_HOVER_BORDER
+                } else {
+                    theme::TABLE_BORDER
+                }
+                .into(),
+                width: border_w,
+                ..Default::default()
+            },
+        );
+        frame.stroke(
+            &Path::new(|bd| {
+                bd.move_to(Point::new(top_left.x, top_left.y + s.height));
+                bd.line_to(Point::new(top_left.x + size.width, top_left.y + s.height));
+            }),
+            Stroke {
+                style: theme::TABLE_BORDER.into(),
+                width: 1.0,
+                ..Default::default()
+            },
+        );
     } // !text_pass (shared chrome)
 
     // records affordance: tables with sample rows carry the rows glyph
@@ -2010,21 +2057,21 @@ fn paint_table(
     // tab). Text draws in the text pass (the canvas's top text layer).
     let title_size = 0.55 * s.height;
     if text_pass {
-    frame.fill_text(Text {
-        content: b.title.clone(),
-        position: Point::new(top_left.x + 0.6 * s.width, top_left.y + s.height * 0.5),
-        // the name stays WHITE: the band itself is readability-clamped
-        // (readable_band) so white chrome reads on any user hex
-        color: Color::WHITE,
-        size: title_size.into(),
-        font: Font {
-            weight: font::Weight::Bold,
-            ..Font::DEFAULT
-        },
-        horizontal_alignment: iced::alignment::Horizontal::Left,
-        vertical_alignment: iced::alignment::Vertical::Center,
-        ..Default::default()
-    });
+        frame.fill_text(Text {
+            content: b.title.clone(),
+            position: Point::new(top_left.x + 0.6 * s.width, top_left.y + s.height * 0.5),
+            // the name stays WHITE: the band itself is readability-clamped
+            // (readable_band) so white chrome reads on any user hex
+            color: Color::WHITE,
+            size: title_size.into(),
+            font: Font {
+                weight: font::Weight::Bold,
+                ..Font::DEFAULT
+            },
+            align_x: iced::advanced::text::Alignment::Left,
+            align_y: iced::alignment::Vertical::Center,
+            ..Default::default()
+        });
     }
 
     // column rows: name at the left, gray outline marker right AFTER the
@@ -2052,32 +2099,32 @@ fn paint_table(
             Font::DEFAULT
         };
         if text_pass {
-        frame.fill_text(Text {
-            content: row.name.clone(),
-            position: baseline(top_left.x + 1.0 * s.width),
-            color: theme::ROW_TEXT,
-            size: row_size.into(),
-            font: name_font,
-            horizontal_alignment: iced::alignment::Horizontal::Left,
-            vertical_alignment: iced::alignment::Vertical::Center,
-            ..Default::default()
-        });
+            frame.fill_text(Text {
+                content: row.name.clone(),
+                position: baseline(top_left.x + 1.0 * s.width),
+                color: theme::ROW_TEXT,
+                size: row_size.into(),
+                font: name_font,
+                align_x: iced::advanced::text::Alignment::Left,
+                align_y: iced::alignment::Vertical::Center,
+                ..Default::default()
+            });
         }
         // dbdiagram's left cluster: pk, fk, unique, note in order — 10.5px
         // glyphs (the unique one their QTn fingerprint), each with a 4px
         // gap
         if !text_pass {
-        for (icon, slot) in row_icon_layout(b, i, zoom, pan) {
-            let path = row_icon_path(icon);
-            svg_icon(
-                frame,
-                Point::new(slot + 5.25 * zoom / 20.0, y),
-                10.5 * zoom / 20.0,
-                10.5,
-                theme::MARKER,
-                path,
-            );
-        }
+            for (icon, slot) in row_icon_layout(b, i, zoom, pan) {
+                let path = row_icon_path(icon);
+                svg_icon(
+                    frame,
+                    Point::new(slot + 5.25 * zoom / 20.0, y),
+                    10.5 * zoom / 20.0,
+                    10.5,
+                    theme::MARKER,
+                    path,
+                );
+            }
         }
         // right side: type text, then the "Enum" / "Not Null" pills flush
         // right; the type's right edge shifts left of both pills (their
@@ -2100,8 +2147,8 @@ fn paint_table(
                 color: theme::TYPE_TEXT,
                 size: row_size.into(),
                 font: Font::DEFAULT,
-                horizontal_alignment: iced::alignment::Horizontal::Right,
-                vertical_alignment: iced::alignment::Vertical::Center,
+                align_x: iced::advanced::text::Alignment::Right,
+                align_y: iced::alignment::Vertical::Center,
                 ..Default::default()
             });
         }
@@ -2123,14 +2170,7 @@ fn paint_table(
 
 /// A subtle text badge pill ("Enum" / "Not Null"), left edge at `x`,
 /// vertically centered on the row line.
-fn badge_pill(
-    frame: &mut canvas::Frame,
-    label: &str,
-    x: f32,
-    y: f32,
-    s: Size,
-    text_pass: bool,
-) {
+fn badge_pill(frame: &mut canvas::Frame, label: &str, x: f32, y: f32, s: Size, text_pass: bool) {
     let tw = label.chars().count() as f32 * BADGE_CHAR * s.width;
     let pad = BADGE_PAD * s.width;
     let rect = Rectangle::new(
@@ -2138,14 +2178,14 @@ fn badge_pill(
         Size::new(tw + 2.0 * pad, 0.55 * s.height),
     );
     if !text_pass {
-    frame.fill(
-        &Path::rounded_rectangle(
-            rect.position(),
-            rect.size(),
-            iced::border::Radius::from(0.12 * s.height),
-        ),
-        Color::from_rgba(0.545, 0.565, 0.612, 0.14),
-    );
+        frame.fill(
+            &Path::rounded_rectangle(
+                rect.position(),
+                rect.size(),
+                iced::border::Radius::from(0.12 * s.height),
+            ),
+            Color::from_rgba(0.545, 0.565, 0.612, 0.14),
+        );
     }
     // the label is CENTERED in the pill: the width reservation is an
     // estimate, and a left-aligned label drifted right when it ran narrow.
@@ -2156,19 +2196,18 @@ fn badge_pill(
     // the correction is a CONSTANT px nudge, not zoom-scaled — scaling it
     // over-corrected at high zoom and pushed the label below center.
     if text_pass {
-    frame.fill_text(Text {
-        content: label.to_string(),
-        position: Point::new(rect.center().x, y + 1.6),
-        color: theme::TYPE_TEXT,
-        size: (0.35 * s.height).into(),
-        font: Font::DEFAULT,
-        horizontal_alignment: iced::alignment::Horizontal::Center,
-        vertical_alignment: iced::alignment::Vertical::Center,
-        ..Default::default()
-    });
+        frame.fill_text(Text {
+            content: label.to_string(),
+            position: Point::new(rect.center().x, y + 1.6),
+            color: theme::TYPE_TEXT,
+            size: (0.35 * s.height).into(),
+            font: Font::DEFAULT,
+            align_x: iced::advanced::text::Alignment::Center,
+            align_y: iced::alignment::Vertical::Center,
+            ..Default::default()
+        });
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -2196,8 +2235,7 @@ mod tests {
             // advance (a regression to est_width fails here)
             assert_eq!(
                 title_end_px(b, top_left, s),
-                top_left.x + 0.6 * s.width
-                    + measured_name_px(&b.title, true, 0.55 * s.height),
+                top_left.x + 0.6 * s.width + measured_name_px(&b.title, true, 0.55 * s.height),
                 "title end is the measured advance for {:?}",
                 b.title
             );
@@ -2395,7 +2433,10 @@ mod tests {
             Some("Primary Key")
         );
         // the unique fingerprint has its own tooltip now
-        assert_eq!(hover(1, slot_of(1, RowIcon::Unique)).as_deref(), Some("Unique"));
+        assert_eq!(
+            hover(1, slot_of(1, RowIcon::Unique)).as_deref(),
+            Some("Unique")
+        );
         // the note glyph never pops a pill — whatever raised it (note /
         // custom properties) is already shown by the field card
         assert_eq!(hover(1, slot_of(1, RowIcon::Note)), None);
@@ -2484,7 +2525,10 @@ Table b { x int }";
         let s = cell_size(zoom);
         assert_eq!(
             a.size(),
-            Size::new(l.boxes[0].w as f32 * s.width, l.boxes[0].h as f32 * s.height)
+            Size::new(
+                l.boxes[0].w as f32 * s.width,
+                l.boxes[0].h as f32 * s.height
+            )
         );
     }
 
@@ -2497,18 +2541,29 @@ Table b { x int }";
         let occ = Rectangle::new(Point::new(5.0, 2.0), Size::new(6.0, 3.0));
         let sl = visible_slivers(rect, occ);
         // left: 5 wide, full height; right: 9 wide, full height
-        assert!(sl.iter().any(|s| s.x == 0.0 && s.width == 5.0 && s.height == 8.0));
-        assert!(sl.iter().any(|s| s.x == 11.0 && s.width == 9.0 && s.height == 8.0));
+        assert!(sl
+            .iter()
+            .any(|s| s.x == 0.0 && s.width == 5.0 && s.height == 8.0));
+        assert!(sl
+            .iter()
+            .any(|s| s.x == 11.0 && s.width == 9.0 && s.height == 8.0));
         // top: 6 wide, 2 tall; bottom: 6 wide, 3 tall
-        assert!(sl.iter().any(|s| s.x == 5.0 && s.y == 0.0 && s.width == 6.0 && s.height == 2.0));
-        assert!(sl.iter().any(|s| s.x == 5.0 && s.y == 5.0 && s.width == 6.0 && s.height == 3.0));
+        assert!(sl
+            .iter()
+            .any(|s| s.x == 5.0 && s.y == 0.0 && s.width == 6.0 && s.height == 2.0));
+        assert!(sl
+            .iter()
+            .any(|s| s.x == 5.0 && s.y == 5.0 && s.width == 6.0 && s.height == 3.0));
         // the slivers never intersect the occluder
         for sl in &sl {
             assert!(!sl.intersects(&occ), "{sl:?} overlaps the occluder");
         }
         // a disjoint occluder leaves the whole rect visible (the paint
         // loop never calls it without an intersection)
-        let sl = visible_slivers(rect, Rectangle::new(Point::new(50.0, 50.0), Size::new(5.0, 5.0)));
+        let sl = visible_slivers(
+            rect,
+            Rectangle::new(Point::new(50.0, 50.0), Size::new(5.0, 5.0)),
+        );
         assert_eq!(sl.len(), 1);
         assert_eq!(sl[0], rect);
     }
@@ -2553,7 +2608,10 @@ Note n { '''x''' }";
         // and the sticky re-grabbed takes it back
         let z = vec![RaisedItem::Table("a".into()), RaisedItem::Note("n".into())];
         let hit = hit_topmost(&l, zoom, pan, p, &z);
-        assert!(matches!(hit, Some(PaintItem::Note(_))), "the last grab wins");
+        assert!(
+            matches!(hit, Some(PaintItem::Note(_))),
+            "the last grab wins"
+        );
     }
 
     #[test]
@@ -2562,17 +2620,11 @@ Note n { '''x''' }";
         // the press — a doc-order note scan returned the lower one and
         // the click fell straight through the top sticky
         let src = "Note a { '''x''' }\nNote b { '''y''' }\n";
-        let build = || {
-            dbml_ui::model::build(&dbml_ui::dbml::parser::parse(src).doc)
-        };
+        let build = || dbml_ui::model::build(&dbml_ui::dbml::parser::parse(src).doc);
         let mut npos = std::collections::HashMap::new();
         npos.insert("a".to_string(), (5, 5, 14, 5));
         npos.insert("b".to_string(), (6, 6, 14, 5)); // overlapping a
-        let l = dbml_ui::layout::layout_with_all_overrides(
-            &build(),
-            &Default::default(),
-            &npos,
-        );
+        let l = dbml_ui::layout::layout_with_all_overrides(&build(), &Default::default(), &npos);
         let (zoom, pan) = (20.0, Vector::default());
         // inside BOTH bodies
         let p = to_px(10, 8, zoom, pan);
@@ -2603,16 +2655,27 @@ Note n { '''x''' }";
         let vis = visible_region(rect, &[middle, top]);
         // everything is covered except the bottom-right quadrant
         assert_eq!(vis.len(), 1, "{vis:?}");
-        assert_eq!(vis[0], Rectangle::new(Point::new(60.0, 50.0), Size::new(40.0, 50.0)));
+        assert_eq!(
+            vis[0],
+            Rectangle::new(Point::new(60.0, 50.0), Size::new(40.0, 50.0))
+        );
         // no visible piece ever intersects any occluder
         for v in &vis {
-            assert!(!v.intersects(&middle) || !v.intersects(&top) || {
-                // a piece may touch both only if it exits both — it cannot
-                false
-            });
+            assert!(
+                !v.intersects(&middle) || !v.intersects(&top) || {
+                    // a piece may touch both only if it exits both — it cannot
+                    false
+                }
+            );
         }
         // disjoint occluders leave the whole rect
-        let vis = visible_region(rect, &[Rectangle::new(Point::new(200.0, 200.0), Size::new(5.0, 5.0))]);
+        let vis = visible_region(
+            rect,
+            &[Rectangle::new(
+                Point::new(200.0, 200.0),
+                Size::new(5.0, 5.0),
+            )],
+        );
         assert_eq!(vis, vec![rect]);
     }
 
@@ -2693,7 +2756,10 @@ Note n { '''x''' }";
             RaisedItem::Table("a".into()),
             RaisedItem::Table("b".into()),
         ];
-        assert_eq!(names(&paint_items(&l2, &z, None, None)), vec!["n", "a", "b"]);
+        assert_eq!(
+            names(&paint_items(&l2, &z, None, None)),
+            vec!["n", "a", "b"]
+        );
     }
 
     #[test]
@@ -2750,8 +2816,7 @@ Table t {
         let s = cell_size(zoom);
         let y = y_of(b, 0, zoom, pan);
         let (x0, x1) = enum_pill_band(b, 0, zoom, pan).expect("enum band");
-        let hit = enum_hit(&l, zoom, pan, Point::new((x0 + x1) / 2.0, y))
-            .expect("enum pill hit");
+        let hit = enum_hit(&l, zoom, pan, Point::new((x0 + x1) / 2.0, y)).expect("enum pill hit");
         assert_eq!(hit.0.title, "t");
         assert_eq!(hit.1, 0);
         // the band hugs the pill's drawn height: above/below the row line
@@ -3142,20 +3207,26 @@ mod interaction_tests {
                 delta: mouse::ScrollDelta::Lines { x: 0.0, y: 2.0 },
             }),
         ] {
-            let (_, message) = d.update(&mut (), event, BOUNDS, Cursor::Available(outside));
-            assert!(message.is_none(), "{message:?}");
+            let action = d.update(&mut (), &event, BOUNDS, Cursor::Available(outside));
+            assert!(action.is_none(), "{action:?}");
         }
     }
 
     #[test]
     fn events_inside_are_localized() {
         let d = diagram();
-        let (_, message) = d.update(
-            &mut (),
-            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
-            BOUNDS,
-            Cursor::Available(Point::new(550.0, 30.0)),
-        );
+        let Some((message, _, _)) = d
+            .update(
+                &mut (),
+                &canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+                BOUNDS,
+                Cursor::Available(Point::new(550.0, 30.0)),
+            )
+            .map(Action::into_inner)
+        else {
+            panic!("expected an Action, got None");
+        };
+
         match message {
             Some(Message::CanvasPressed(p)) => {
                 assert_eq!(p, Point::new(50.0, 30.0), "bounds-relative");
@@ -3170,19 +3241,32 @@ mod interaction_tests {
         let mut d = diagram();
         d.dragging = true;
         let outside = Point::new(100.0, 100.0);
-        let (_, moved) = d.update(
-            &mut (),
-            canvas::Event::Mouse(mouse::Event::CursorMoved { position: outside }),
-            BOUNDS,
-            Cursor::Available(outside),
-        );
+        let Some((moved, _, _)) = d
+            .update(
+                &mut (),
+                &canvas::Event::Mouse(mouse::Event::CursorMoved { position: outside }),
+                BOUNDS,
+                Cursor::Available(outside),
+            )
+            .map(Action::into_inner)
+        else {
+            panic!("expected an Action, got None");
+        };
+
         assert!(moved.is_some(), "drag tracks outside");
-        let (_, released) = d.update(
-            &mut (),
-            canvas::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
-            BOUNDS,
-            Cursor::Available(outside),
-        );
+
+        let Some((released, _, _)) = d
+            .update(
+                &mut (),
+                &canvas::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+                BOUNDS,
+                Cursor::Available(outside),
+            )
+            .map(Action::into_inner)
+        else {
+            panic!("expected an Action, got None");
+        };
+
         assert!(released.is_some(), "release outside ends the drag");
     }
 
@@ -3199,7 +3283,10 @@ mod interaction_tests {
         );
         // empty canvas (past all content): the plain arrow, like dbdiagram
         let empty = Cursor::Available(Point::new(BOUNDS.x + 550.0, BOUNDS.y + 380.0));
-        assert_eq!(d.mouse_interaction(&(), BOUNDS, empty), Interaction::default());
+        assert_eq!(
+            d.mouse_interaction(&(), BOUNDS, empty),
+            Interaction::default()
+        );
         // mid-drag: grabbing
         d.dragging = true;
         assert_eq!(
@@ -3291,10 +3378,7 @@ fn note_section(note: &str, wrap_cols: usize, divider_before: bool) -> PopupSect
 
 /// The Custom Properties section (their TooltipCustomPropertySection:
 /// py-1 label + pl-4 disc bullets + pb-1.5).
-fn custom_props_section(
-    custom: &[(String, String)],
-    divider_before: bool,
-) -> PopupSection {
+fn custom_props_section(custom: &[(String, String)], divider_before: bool) -> PopupSection {
     PopupSection {
         label: "Custom Properties",
         label_sub: None,
@@ -3404,8 +3488,7 @@ fn popup_layout(
             content_h += 1.0; // h-px divider in flow
         }
         content_h += sec.pad_top * k;
-        content_w = content_w
-            .max(2.0 * POPUP_PAD_X * k + semibold_px(sec.label, 12.0 * k));
+        content_w = content_w.max(2.0 * POPUP_PAD_X * k + semibold_px(sec.label, 12.0 * k));
         if let Some((sub, _)) = &sec.label_sub {
             content_w = content_w.max(
                 2.0 * POPUP_PAD_X * k
@@ -3419,10 +3502,8 @@ fn popup_layout(
             match e {
                 PopupEntry::Plain(text, _) => {
                     for l in wrap_chars(text, wrap_cols) {
-                        content_w = content_w.max(
-                            2.0 * POPUP_PAD_X * k
-                                + l.chars().count() as f32 * 6.6 * k,
-                        );
+                        content_w = content_w
+                            .max(2.0 * POPUP_PAD_X * k + l.chars().count() as f32 * 6.6 * k);
                         content_h += sec.pitch * k;
                     }
                 }
@@ -3471,7 +3552,15 @@ fn popup_layout(
     // the tail points at the anchor's vertical center, kept clear of the
     // rounded corners (their arrowPadding)
     let tail_y = ((anchor.top + anchor.bottom) * 0.5).clamp(y + 14.0 * k, y + h - 14.0 * k);
-    PopupGeom { x, y, w, h, header_h, tail_left, tail_y }
+    PopupGeom {
+        x,
+        y,
+        w,
+        h,
+        header_h,
+        tail_left,
+        tail_y,
+    }
 }
 
 /// The popup header's little glyph (their w-3 svg before the title): the
@@ -3500,8 +3589,8 @@ fn draw_popup_chrome(
     let radius = 8.0 * k;
     let border = Color::from_rgba(1.0, 1.0, 1.0, 0.1);
     let bg = Color::from_rgba8(0x30, 0x31, 0x37, 1.0); // opaque: even 2% alpha ghosts underlying table text through the card
-    // soft shadow (their box-shadow 0 8px 24px #0006): two stacked
-    // offset fills fake the falloff — the canvas has no blur
+                                                       // soft shadow (their box-shadow 0 8px 24px #0006): two stacked
+                                                       // offset fills fake the falloff — the canvas has no blur
     for (off, alpha) in [(3.0, 0.16), (6.0, 0.10)] {
         frame.fill(
             &Path::rounded_rectangle(
@@ -3597,8 +3686,8 @@ fn draw_popup_chrome(
             weight: font::Weight::Semibold,
             ..Font::DEFAULT
         },
-        horizontal_alignment: iced::alignment::Horizontal::Left,
-        vertical_alignment: iced::alignment::Vertical::Center,
+        align_x: iced::advanced::text::Alignment::Left,
+        align_y: iced::alignment::Vertical::Center,
         ..Default::default()
     });
     if let Some((text, color)) = sub {
@@ -3609,8 +3698,8 @@ fn draw_popup_chrome(
             color,
             size: (0.7 * zoom).into(),
             font: theme::mono(),
-            horizontal_alignment: iced::alignment::Horizontal::Left,
-            vertical_alignment: iced::alignment::Vertical::Center,
+            align_x: iced::advanced::text::Alignment::Left,
+            align_y: iced::alignment::Vertical::Center,
             ..Default::default()
         });
     }
@@ -3628,14 +3717,16 @@ fn draw_popup_icon(
     size: f32,
     ink: Color,
 ) {
-    let stroke = |frame: &mut canvas::Frame, p: Path| frame.stroke(
-        &p,
-        canvas::Stroke {
-            style: ink.into(),
-            width: 1.0,
-            ..Default::default()
-        },
-    );
+    let stroke = |frame: &mut canvas::Frame, p: Path| {
+        frame.stroke(
+            &p,
+            canvas::Stroke {
+                style: ink.into(),
+                width: 1.0,
+                ..Default::default()
+            },
+        )
+    };
     match icon {
         PopupIcon::Field => {
             // rect(0.5,0.5,11,11 rx1.5), h-line at y=4, v-line at x=4
@@ -3722,12 +3813,7 @@ fn draw_popup_icon(
 /// dividers between sections, semibold labels (with an optional inline
 /// colored run), wrapped plain lines, truncating bullets. Clip-relative
 /// coordinates (with_clip drafts at the clip origin).
-fn draw_popup_body(
-    frame: &mut canvas::Frame,
-    g: &PopupGeom,
-    sections: &[PopupSection],
-    zoom: f32,
-) {
+fn draw_popup_body(frame: &mut canvas::Frame, g: &PopupGeom, sections: &[PopupSection], zoom: f32) {
     let k = zoom / 20.0;
     let wrap_cols = ((POPUP_MAX_W - 2.0 * POPUP_PAD_X) / (6.6 * k)) as usize;
     let body_top = g.y + g.header_h;
@@ -3760,8 +3846,8 @@ fn draw_popup_body(
                         weight: font::Weight::Semibold,
                         ..Font::DEFAULT
                     },
-                    horizontal_alignment: iced::alignment::Horizontal::Left,
-                    vertical_alignment: iced::alignment::Vertical::Center,
+                    align_x: iced::advanced::text::Alignment::Left,
+                    align_y: iced::alignment::Vertical::Center,
                     ..Default::default()
                 });
                 if let Some((sub, color)) = &sec.label_sub {
@@ -3777,15 +3863,19 @@ fn draw_popup_body(
                         color: *color,
                         size: (0.6 * zoom).into(),
                         font: Font::DEFAULT,
-                        horizontal_alignment: iced::alignment::Horizontal::Left,
-                        vertical_alignment: iced::alignment::Vertical::Center,
+                        align_x: iced::advanced::text::Alignment::Left,
+                        align_y: iced::alignment::Vertical::Center,
                         ..Default::default()
                     });
                 }
                 cy += POPUP_LINE_H * k + sec.label_pad_bottom * k;
                 // the enum values hang one tab stop in (their
                 // whitespace-pre-wrap block leads every value with \t)
-                let entry_indent = if sec.label == "Enum" { POPUP_TAB_INDENT * k } else { 0.0 };
+                let entry_indent = if sec.label == "Enum" {
+                    POPUP_TAB_INDENT * k
+                } else {
+                    0.0
+                };
                 for e in &sec.entries {
                     match e {
                         PopupEntry::Plain(text, color) => {
@@ -3799,8 +3889,8 @@ fn draw_popup_body(
                                     color: *color,
                                     size: (0.6 * zoom).into(),
                                     font: Font::DEFAULT,
-                                    horizontal_alignment: iced::alignment::Horizontal::Left,
-                                    vertical_alignment: iced::alignment::Vertical::Center,
+                                    align_x: iced::advanced::text::Alignment::Left,
+                                    align_y: iced::alignment::Vertical::Center,
                                     ..Default::default()
                                 });
                                 cy += sec.pitch * k;
@@ -3816,8 +3906,8 @@ fn draw_popup_body(
                                 color: *key_color,
                                 size: (0.6 * zoom).into(),
                                 font: Font::DEFAULT,
-                                horizontal_alignment: iced::alignment::Horizontal::Left,
-                                vertical_alignment: iced::alignment::Vertical::Center,
+                                align_x: iced::advanced::text::Alignment::Left,
+                                align_y: iced::alignment::Vertical::Center,
                                 ..Default::default()
                             });
                             let text_x = POPUP_PAD_X * k + 16.0 * k; // their pl-4
@@ -3832,8 +3922,7 @@ fn draw_popup_body(
                                 if key_nat + colon_w + val_nat <= usable {
                                     (key.clone(), key_nat, value.clone())
                                 } else {
-                                    let (kt, kw) =
-                                        truncate_to(key, usable * 0.4, 6.6 * k);
+                                    let (kt, kw) = truncate_to(key, usable * 0.4, 6.6 * k);
                                     let (vt, _) = truncate_to(
                                         value,
                                         (usable - kw - colon_w).max(6.6 * k),
@@ -3850,21 +3939,18 @@ fn draw_popup_body(
                                 color: *key_color,
                                 size: (0.6 * zoom).into(),
                                 font: Font::DEFAULT,
-                                horizontal_alignment: iced::alignment::Horizontal::Left,
-                                vertical_alignment: iced::alignment::Vertical::Center,
+                                align_x: iced::advanced::text::Alignment::Left,
+                                align_y: iced::alignment::Vertical::Center,
                                 ..Default::default()
                             });
                             f.fill_text(Text {
                                 content: val_text,
-                                position: Point::new(
-                                    text_x + key_w_px,
-                                    cy + sec.pitch * k * 0.5,
-                                ),
+                                position: Point::new(text_x + key_w_px, cy + sec.pitch * k * 0.5),
                                 color: *value_color,
                                 size: (0.6 * zoom).into(),
                                 font: Font::DEFAULT,
-                                horizontal_alignment: iced::alignment::Horizontal::Left,
-                                vertical_alignment: iced::alignment::Vertical::Center,
+                                align_x: iced::advanced::text::Alignment::Left,
+                                align_y: iced::alignment::Vertical::Center,
                                 ..Default::default()
                             });
                             cy += sec.pitch * k;
@@ -3980,8 +4066,19 @@ fn draw_field_popup(
         bottom: to_px(b.x, b.y + r as i32 + 1, view_zoom, pan).y + s.height,
     };
     let g = popup_layout(&sections, header_w, anchor, zoom, bounds);
-    let type_color = if row.ty_enum { ENUM_VALUE_BLUE } else { TYPE_ORANGE };
-    draw_popup_chrome(frame, &g, PopupIcon::Field, &row.name, Some((row.ty.as_str(), type_color)), zoom);
+    let type_color = if row.ty_enum {
+        ENUM_VALUE_BLUE
+    } else {
+        TYPE_ORANGE
+    };
+    draw_popup_chrome(
+        frame,
+        &g,
+        PopupIcon::Field,
+        &row.name,
+        Some((row.ty.as_str(), type_color)),
+        zoom,
+    );
     draw_popup_body(frame, &g, &sections, zoom);
 }
 
@@ -4003,10 +4100,7 @@ fn draw_table_popup(
     if !b.custom.is_empty() {
         sections.push(custom_props_section(&b.custom, b.note.is_some()));
     }
-    let header_w = 12.0 * k
-        + 6.0 * k
-        + semibold_px(&b.title, 14.0 * k)
-        + 2.0 * POPUP_PAD_X * k;
+    let header_w = 12.0 * k + 6.0 * k + semibold_px(&b.title, 14.0 * k) + 2.0 * POPUP_PAD_X * k;
     let s = cell_size(view_zoom);
     let box_left = to_px(b.x, b.y, view_zoom, pan).x;
     let header_top = to_px(b.x, b.y, view_zoom, pan).y;
@@ -4039,10 +4133,7 @@ fn draw_group_popup(
     if !g.custom.is_empty() {
         sections.push(custom_props_section(&g.custom, g.note.is_some()));
     }
-    let header_w = 13.0 * k
-        + 6.0 * k
-        + semibold_px(&g.name, 14.0 * k)
-        + 2.0 * POPUP_PAD_X * k;
+    let header_w = 13.0 * k + 6.0 * k + semibold_px(&g.name, 14.0 * k) + 2.0 * POPUP_PAD_X * k;
     let s = cell_size(zoom);
     let band_left = to_px(g.rect.0, g.rect.1, view_zoom, pan).x;
     let band_top = to_px(g.rect.0, g.rect.1, view_zoom, pan).y;
@@ -4074,21 +4165,15 @@ fn draw_tooltip_pill(
     // static size (see draw_field_popup)
     let zoom = 20.0;
     let k = zoom / 20.0;
-    let widest = lines
-        .iter()
-        .map(|l| l.chars().count())
-        .max()
-        .unwrap_or(0) as f32;
+    let widest = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0) as f32;
     // the codebase's standard 0.58em advance for the 10px tooltip font —
     // the old 6.2 + 16px padding sized the pill ~25% past its text
     let w = widest * 5.8 * k + 12.0 * k;
     // 15k per line + 4k padding: a single line is an 18k pill, snug
     // around its 10k text
     let h = (lines.len() as f32 * 15.0 + 4.0) * k;
-    let x = (p.x + 10.0 * k)
-        .clamp(2.0, (bounds.width - w - 2.0).max(2.0));
-    let y = (p.y + 10.0 * k)
-        .clamp(2.0, (bounds.height - h - 2.0).max(2.0));
+    let x = (p.x + 10.0 * k).clamp(2.0, (bounds.width - w - 2.0).max(2.0));
+    let y = (p.y + 10.0 * k).clamp(2.0, (bounds.height - h - 2.0).max(2.0));
     frame.fill(
         &Path::rounded_rectangle(
             Point::new(x, y),
@@ -4115,8 +4200,8 @@ fn draw_tooltip_pill(
                 },
                 ..Font::DEFAULT
             },
-            horizontal_alignment: iced::alignment::Horizontal::Center,
-            vertical_alignment: iced::alignment::Vertical::Center,
+            align_x: iced::advanced::text::Alignment::Center,
+            align_y: iced::alignment::Vertical::Center,
             ..Default::default()
         });
     }
@@ -4125,7 +4210,13 @@ fn draw_tooltip_pill(
 /// True when the pointer sits on a header's color-picker glyph: the
 /// overlay suppresses the popup/glyph chrome there (the picker owns the
 /// press).
-fn picker_glyph_hovered(layout: &Layout, zoom: f32, pan: Vector, p: Point, group_z: &[String]) -> bool {
+fn picker_glyph_hovered(
+    layout: &Layout,
+    zoom: f32,
+    pan: Vector,
+    p: Point,
+    group_z: &[String],
+) -> bool {
     palette_icon_hit(layout, zoom, pan, p).is_some()
         || super::groups::group_icon_hit(layout, zoom, pan, p, group_z).is_some()
 }
@@ -4257,21 +4348,20 @@ fn draw_active_popup(
     }
     // the "Enum" pill shows the enum's definition (its name, then the
     // values one per line)
-    let lines: Option<Vec<String>> =
-        if let Some((b, row)) = enum_hit(layout, zoom, pan, p) {
-            let ty = &b.rows[row].ty;
-            layout.enums.iter().find(|e| &e.name == ty).map(|e| {
-                let mut lines = vec![e.name.clone()];
-                let cap = 12; // keep the pill readable on huge enums
-                lines.extend(e.values.iter().take(cap).cloned());
-                if e.values.len() > cap {
-                    lines.push("\u{2026}".to_string());
-                }
-                lines
-            })
-        } else {
-            None
-        };
+    let lines: Option<Vec<String>> = if let Some((b, row)) = enum_hit(layout, zoom, pan, p) {
+        let ty = &b.rows[row].ty;
+        layout.enums.iter().find(|e| &e.name == ty).map(|e| {
+            let mut lines = vec![e.name.clone()];
+            let cap = 12; // keep the pill readable on huge enums
+            lines.extend(e.values.iter().take(cap).cloned());
+            if e.values.len() > cap {
+                lines.push("\u{2026}".to_string());
+            }
+            lines
+        })
+    } else {
+        None
+    };
     if let Some(lines) = lines {
         draw_tooltip_pill(frame, &lines, p, zoom, bounds);
     }
