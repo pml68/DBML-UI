@@ -3207,8 +3207,14 @@ mod interaction_tests {
                 delta: mouse::ScrollDelta::Lines { x: 0.0, y: 2.0 },
             }),
         ] {
-            let action = d.update(&mut (), &event, BOUNDS, Cursor::Available(outside));
-            assert!(action.is_none(), "{action:?}");
+            let Some((message, _, _)) = d
+                .update(&mut (), &event, BOUNDS, Cursor::Available(outside))
+                .map(Action::into_inner)
+            else {
+                panic!("expected an Action, got None");
+            };
+
+            assert!(message.is_none(), "{message:?}");
         }
     }
 

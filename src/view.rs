@@ -5348,13 +5348,15 @@ mod edge_handle_tests {
         // diagram side of the seam (the editor half falls through)
         let at = Point::new(410.0, 300.0);
         let (event, cursor) = press(at);
-        if let Some((message, _, status)) = h
+        let Some((message, _, status)) = h
             .update(&mut (), &event, STRIP, cursor)
             .map(canvas::Action::into_inner)
-        {
-            assert!(matches!(message, Some(Message::DividerPressed)));
-            assert_eq!(status, iced::event::Status::Captured);
-        }
+        else {
+            panic!("expected an Action, got None");
+        };
+
+        assert!(matches!(message, Some(Message::DividerPressed)));
+        assert_eq!(status, iced::event::Status::Captured);
     }
 
     #[test]
@@ -5365,14 +5367,9 @@ mod edge_handle_tests {
         let h = EdgeHandle;
         let at = Point::new(403.0, 300.0); // editor side of the seam
         let (event, cursor) = press(at);
-        if let Some((message, _, status)) = h
-            .update(&mut (), &event, STRIP, cursor)
-            .map(canvas::Action::into_inner)
-        {
-            assert!(message.is_none());
+        let action = h.update(&mut (), &event, STRIP, cursor);
 
-            assert_eq!(status, iced::event::Status::Ignored);
-        }
+        assert!(action.is_none());
     }
 
     #[test]
@@ -5383,13 +5380,9 @@ mod edge_handle_tests {
         let h = EdgeHandle;
         let editor_area = Point::new(60.0, 50.0); // 2nd char of a line
         let (event, cursor) = press(editor_area);
-        if let Some((message, _, status)) = h
-            .update(&mut (), &event, STRIP, cursor)
-            .map(canvas::Action::into_inner)
-        {
-            assert!(message.is_none());
-            assert_eq!(status, iced::event::Status::Ignored);
-        }
+        let action = h.update(&mut (), &event, STRIP, cursor);
+
+        assert!(action.is_none());
     }
 
     #[test]

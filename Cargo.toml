@@ -24,7 +24,7 @@ rust-version = "1.92"
 # iced_tiny_skia = { path = "vendor/iced_tiny_skia" }
 iced_tiny_skia = "0.14"
 serde_json = "1"
-boa_engine = "0.22"
+boa_engine = "0.20"
 # measured text widths for the diagram's icon clusters: shape through the
 # same stack iced renders with (version pinned to iced's own copy)
 cosmic-text = "0.19.0"
@@ -35,18 +35,22 @@ anyhow = "1.0.104"
 # embeds the default UI font. The renderer is wgpu (with the tiny-skia
 # fallback iced activates when the adapter request fails). The theme is
 # hardcoded Dark (theme::app), so auto-detect-theme stays off.
-iced = { version = "=0.14.0", default-features = false, features = [
-  "advanced",
-  "canvas",
-  "smol",
-  "svg",
-  "wgpu",
-  "tiny-skia",
-  "fira-sans",
-  "x11",
-  "wayland",
-  "crisp",
-] }
+iced = {
+  version = "=0.14.0",
+  default-features = false,
+  features = [
+    "advanced",
+    "canvas",
+    "smol",
+    "svg",
+    "wgpu",
+    "tiny-skia",
+    "fira-sans",
+    "x11",
+    "wayland",
+    "crisp",
+  ]
+}
 # MSRV pins for rustc 1.84: newer releases of these crates require 1.85+.
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 regex = "1.13.2"
